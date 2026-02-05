@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { AgentEngine } from "@repo/ai-agents";
+import { AgentEngine } from "@/lib/ai-agents";
 import { buildChatbotSettings, validateAIConfiguration } from "@/lib/build-chatbot-settings";
 
 export async function POST(request: Request) {

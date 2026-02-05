@@ -7,7 +7,7 @@ export async function GET() {
     const campaigns = await prisma.campaign.findMany({ orderBy: { createdAt: "desc" } });
 
     return NextResponse.json(
-      campaigns.map(campaign => ({
+      campaigns.map((campaign: any) => ({
         id: campaign.id, name: campaign.name, description: campaign.description,
         status: mapCampaignStatus(campaign.status),
         sent_count: 0, delivered_count: 0, read_count: 0, delivery_rate: 0,

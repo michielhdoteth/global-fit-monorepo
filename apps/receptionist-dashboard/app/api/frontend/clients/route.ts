@@ -6,7 +6,7 @@ export async function GET() {
   try {
     const clients = await prisma.client.findMany({ orderBy: { createdAt: "desc" } });
     return NextResponse.json(
-      clients.map(client => ({
+      clients.map((client: any) => ({
         id: client.id,
         name: client.name,
         email: client.email,

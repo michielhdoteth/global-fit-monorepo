@@ -1,0 +1,517 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  STAFF
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+  LOST
+}
+
+enum AppointmentStatus {
+  CONFIRMED
+  PENDING
+  CANCELLED
+  COMPLETED
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  PAUSED
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum ReminderType {
+  APPOINTMENT
+  PAYMENT
+  FOLLOW_UP
+  GENERAL
+}
+
+enum ConversationStatus {
+  ACTIVE
+  RESOLVED
+  HANDOFF
+}
+
+enum MessageDeliveryStatus {
+  PENDING
+  DELIVERED
+  READ
+  FAILED
+}
+
+// ============================================================================
+// CORE MODELS
+// ============================================================================
+
+model Team {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  description String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members  User[]
+  clients  Client[]
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  hashedPassword String
+  fullName  String
+  role      UserRole @default(STAFF)
+  isActive  Boolean  @default(true)
+  teamId    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team      Team?    @relation(fields: [teamId], references: [id])
+}
+
+// ============================================================================
+// CLIENT & CRM MODELS
+// ============================================================================
+
+model Client {
+  id                Int         @id @default(autoincrement())
+  name              String
+  email             String      @unique
+  phone             String?
+  plan              String?
+  planDetails       String?
+  status            ClientStatus @default(PENDING)
+  notes             String?
+  teamId            Int?
+  whatsappNumber    String?
+  customField1      String?
+  customField2      String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  team              Team?       @relation(fields: [teamId], references: [id])
+  leads             Lead[]
+  appointments      Appointment[]
+  conversations     Conversation[]
+  reminders         Reminder[]
+  campaigns         Campaign[]
+  checkIns          CheckIn[]
+}
+
+model Lead {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String?   @unique
+  phone     String?
+  source    String?
+  status    LeadStatus @default(NEW)
+  notes     String?
+  clientId  Int
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+// ============================================================================
+// APPOINTMENT & SCHEDULING
+// ============================================================================
+
+model Appointment {
+  id                Int               @id @default(autoincrement())
+  title             String
+  description       String?
+  date              String            // Format: YYYY-MM-DD
+  time              String?           // Format: HH:mm
+  duration          Int?              // Minutes
+  status            AppointmentStatus @default(PENDING)
+  clientId          Int
+  reminderSent      Boolean           @default(false)
+  reminderTime      String?           // Format: HH:mm
+  location          String?
+  notes             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  client            Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  reminders         Reminder[]
+
+  @@index([clientId])
+  @@index([date])
+}
+
+// ============================================================================
+// CAMPAIGNS
+// ============================================================================
+
+model Campaign {
+  id        Int           @id @default(autoincrement())
+  name      String
+  description String?
+  status    CampaignStatus @default(DRAFT)
+  type      String?       // "email", "whatsapp", "sms"
+  content   String?
+  clientId  Int
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([status])
+}
+
+model CampaignRule {
+  id               Int       @id @default(autoincrement())
+  name             String
+  description      String?
+  ruleType         String    @default("custom")      // "onboarding", "monthly", "seasonal", "promotional", "retention", "custom"
+  triggerEvent     String    @default("manual")      // "client_signup", "membership_expiry", "inactivity", "payment_due", "milestone", "manual"
+  templateContent  String    @db.Text
+  isActive         Boolean   @default(true)
+  sendHour         Int       @default(9)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  targets          CampaignRuleTarget[]
+
+  @@index([ruleType])
+  @@index([isActive])
+}
+
+model CampaignRuleTarget {
+  id               Int       @id @default(autoincrement())
+  ruleId           Int
+  targetType       String    // "all_clients", "specific_plan", "specific_status"
+  targetValue      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  rule             CampaignRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+}
+
+// ============================================================================
+// REMINDERS
+// ============================================================================
+
+model Reminder {
+  id        Int           @id @default(autoincrement())
+  type      ReminderType @default(GENERAL)
+  message   String
+  status    ReminderStatus @default(PENDING)
+  sendAt    DateTime?
+  sentAt    DateTime?
+  clientId  Int?
+  appointmentId Int?
+  channel   String?       // "whatsapp", "email", "sms"
+  retries   Int           @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  client    Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([appointmentId])
+  @@index([status])
+}
+
+// ============================================================================
+// CONVERSATIONS & MESSAGING
+// ============================================================================
+
+model Conversation {
+  id        Int               @id @default(autoincrement())
+  clientId  Int
+  status    ConversationStatus @default(ACTIVE)
+  channel   String?           // "whatsapp", "email", "in-app"
+  lastMessageAt DateTime?
+  assignedTo String?          // User email
+  notes     String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([lastMessageAt])
+}
+
+model Message {
+  id                Int                 @id @default(autoincrement())
+  conversationId    Int
+  content           String
+  sender            String              // "client" or "agent"
+  senderName        String?
+  deliveryStatus    MessageDeliveryStatus @default(PENDING)
+  messageId         String?             // WhatsApp message ID
+  mediaUrl          String?
+  mediaType         String?             // "image", "video", "audio", "document"
+  metadata          Json?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  conversation      Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// CHECK-INS & VISITS
+// ============================================================================
+
+model CheckIn {
+  id        Int       @id @default(autoincrement())
+  clientId  Int
+  timestamp DateTime  @default(now())
+  notes     String?
+  createdAt DateTime  @default(now())
+
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([timestamp])
+}
+
+// ============================================================================
+// METRICS & ANALYTICS
+// ============================================================================
+
+model MessageMetrics {
+  id        Int       @id @default(autoincrement())
+  date      String    // Format: YYYY-MM-DD
+  totalSent Int       @default(0)
+  delivered Int       @default(0)
+  failed    Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([date])
+  @@index([date])
+}
+
+// ============================================================================
+// INTEGRATIONS
+// ============================================================================
+
+model KapsoSettings {
+  id               Int       @id @default(autoincrement())
+  whatsappNumber   String?
+  isConnected      Boolean   @default(false)
+  isEnabled        Boolean   @default(true)
+  apiKey           String?
+  webhookSecret    String?
+  baseUrl          String?
+  lastHeartbeat    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([whatsappNumber])
+}
+
+model ChatbotSettings {
+  id                    Int       @id @default(autoincrement())
+  isEnabled             Boolean   @default(false)
+  defaultResponse       String    @default("Hello! How can I help you today?")
+  fallbackMessage       String    @default("I'm not sure how to help with that. Please try rephrasing your question.")
+  systemPrompt           String    @default("You are a helpful assistant for Global Fit Gym.")
+  sessionTimeoutMins    Int       @default(30)
+  businessHoursEnabled  Boolean   @default(false)
+  outOfHoursMessage     String    @default("We're currently offline. Please try again during business hours.")
+  allowAutomatedOutside Boolean   @default(false)
+  respondMessages       Boolean   @default(true)
+  useKnowledgeBase      Boolean   @default(true)
+  instantReply          Boolean   @default(false)
+  aiEnabled             Boolean   @default(false)
+  aiProvider            String    @default("deepseek")
+  aiModel               String    @default("deepseek-chat")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model EvoSettings {
+  id        Int      @id @default(autoincrement())
+  dns       String?
+  apiKey    String?
+  aiApiKey  String?
+  branchId  String?
+  isEnabled Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LlmSettings {
+  id         Int      @id @default(autoincrement())
+  provider   String   @default("deepseek")
+  apiKey     String?
+  model      String   @default("gpt-5.2-nano")
+  baseUrl    String?
+  temperature Float   @default(0.7)
+  maxTokens  Int      @default(1000)
+  isEnabled  Boolean  @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model ReminderRule {
+  id              Int       @id @default(autoincrement())
+  name            String
+  description     String?
+  ruleType        String
+  daysBefore      Int       @default(0)
+  daysAfter       Int       @default(0)
+  templateMessage String
+  isActive        Boolean   @default(true)
+  sendHour        Int       @default(9)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  targets         RuleTarget[]
+}
+
+model RuleTarget {
+  id          Int       @id @default(autoincrement())
+  ruleId      Int
+  targetType  String
+  targetValue String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  rule        ReminderRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+}
+
+model KnowledgeDocument {
+  id         Int               @id @default(autoincrement())
+  filename   String
+  fileType   String?
+  isIndexed  Boolean           @default(false)
+  uploadedAt DateTime          @default(now())
+  chunks     DocumentChunk[]
+}
+
+model DocumentChunk {
+  id          Int               @id @default(autoincrement())
+  documentId  Int
+  content     String            @db.Text
+  chunkIndex  Int
+  metadata    Json?
+  createdAt   DateTime          @default(now())
+
+  document    KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([chunkIndex])
+}
+
+model ConversationFlow {
+  id        Int       @id @default(autoincrement())
+  name      String
+  trigger   String    // Keywords that trigger this flow
+  steps     Json      // Array of flow steps
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([trigger])
+}
+
+model KeywordRule {
+  id               Int       @id @default(autoincrement())
+  name             String
+  keywords         String[]  // Array of keywords
+  matchType        String    @default("contains") // "exact", "contains", "starts_with", "regex"
+  responseType     String    @default("text")     // "text" or "transfer"
+  responseContent  Json      // Response message or transfer data
+  priority         Int       @default(100)
+  isEnabled        Boolean   @default(true)
+  caseSensitive    Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([priority])
+  @@index([isEnabled])
+}
+
+// ============================================================================
+// EXTERNAL INTEGRATIONS
+// ============================================================================
+
+model EvoSync {
+  id        Int       @id @default(autoincrement())
+  clientId  Int
+  evoMemberId String?
+  lastSyncAt DateTime?
+  syncStatus String?  // "pending", "success", "failed"
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model WebhookLog {
+  id        Int       @id @default(autoincrement())
+  source    String    // "kapso", "evo", "other"
+  event     String
+  payload   Json
+  processed Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  @@index([source])
+  @@index([processed])
+}
+
+model BackupSettings {
+  id                Int       @id @default(autoincrement())
+  isEnabled         Boolean   @default(false)
+  frequency         String    @default("daily")  // "daily", "weekly", "monthly"
+  backupTime        String    @default("02:00")  // Format: HH:mm
+  retentionDays     Int       @default(30)
+  lastBackupAt      DateTime?
+  nextScheduledAt   DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}

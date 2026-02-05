@@ -10,7 +10,7 @@ export async function GET() {
     });
 
     return NextResponse.json(
-      conversations.map(conversation => {
+      conversations.map((conversation: any) => {
         const lastMessage = conversation.messages[0];
         return {
           id: conversation.id,

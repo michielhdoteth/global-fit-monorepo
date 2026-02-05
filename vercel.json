@@ -1,20 +1,16 @@
 {
-  "buildCommand": "bun run build --filter=receptionist-dashboard... --filter=gym-landing...",
-  "outputDirectory": ".next",
+  "buildCommand": "cd apps/receptionist-dashboard && bun run build",
+  "outputDirectory": "apps/receptionist-dashboard/.next",
   "installCommand": "bun install",
-  "framework": "nextjs",
+  "framework": null,
   "crons": [
     {
-      "path": "/api/cron?task=sync-checkins",
-      "schedule": "0 * * * *"
-    },
-    {
-      "path": "/api/cron?task=send-reminders",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron?task=process-campaigns",
+      "path": "/api/cron/campaigns",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { prisma } from "@repo/database";
+import { prisma } from "@/lib/database";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 

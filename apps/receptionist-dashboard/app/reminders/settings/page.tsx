@@ -53,7 +53,7 @@ const targetTypeLabels: Record<string, string> = {
 };
 
 export default function ReminderRulesPage() {
-  const { toast } = useToast();
+  const { toast, success, error: showError } = useToast();
   const [rules, setRules] = useState<ReminderRule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewModal, setShowNewModal] = useState(false);
@@ -116,11 +116,11 @@ export default function ReminderRulesPage() {
         method: 'DELETE',
       });
       if (response.ok) {
-        toast.success('Regla eliminada', 'La regla de recordatorio ha sido eliminada');
+        success('Regla eliminada', 'La regla de recordatorio ha sido eliminada');
         fetchRules();
       }
     } catch (error) {
-      toast.error('Error', 'No se pudo eliminar la regla');
+      showError('Error', 'No se pudo eliminar la regla');
       console.error('Failed to delete rule:', error);
     } finally {
       setDeleteRuleId(null);
@@ -140,11 +140,11 @@ export default function ReminderRulesPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        toast.success('Recordatorios generados', data.message);
+        success('Recordatorios generados', data.message);
         fetchRules();
       }
     } catch (error) {
-      toast.error('Error', 'No se pudieron generar los recordatorios');
+      showError('Error', 'No se pudieron generar los recordatorios');
       console.error('Failed to generate reminders:', error);
     }
   };

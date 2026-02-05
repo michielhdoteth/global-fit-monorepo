@@ -3,7 +3,7 @@
  * Constructs ChatbotSettings from database record with dynamic API key routing
  */
 
-import { ChatbotSettings } from "@repo/ai-agents";
+import { ChatbotSettings } from "@/lib/ai-agents";
 
 /**
  * Get API key for the specified AI provider

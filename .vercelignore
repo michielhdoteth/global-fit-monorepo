@@ -1,0 +1,90 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Testing
+coverage
+*.lcov
+.cypress
+
+# Next.js build outputs
+.next
+out
+build
+dist
+
+# Misc
+.DS_Store
+*.pem
+nul
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local env files (keep .env.docker for Vercel)
+.env
+.env*.local
+.env.production.example
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Git
+.git
+.gitignore
+
+# Documentation (keep important ones)
+README.md
+CHANGELOG.md
+AI-SETUP-CHECKLIST.md
+CLAUDE_CODE_DISTRIBUTED_SETUP.md
+*.md
+!apps/receptionist-dashboard/README.md
+
+# Tests
+__tests__
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+**/__tests__
+
+# Turbo
+.turbo
+
+# OS
+Thumbs.db
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Deployment scripts
+deploy.sh
+*.sh
+
+# VPS files
+nginx.conf
+ssl
+
+# Only include needed apps and packages
+apps/gym-landing
+tooling
+
+# Keep receptionist-dashboard and all packages
+!apps/receptionist-dashboard
+!packages

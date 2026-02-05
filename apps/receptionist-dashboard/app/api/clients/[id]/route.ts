@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@repo/database";
+import { prisma } from "@/lib/database";
 import { requireUser } from "@/lib/token-auth";
-import { successResponse, errorResponse } from "@repo/utils";
+import { successResponse, errorResponse } from "@/lib/utils";
 import { z } from "zod";
 
 const updateClientSchema = z.object({

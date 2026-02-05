@@ -62,7 +62,7 @@ const targetTypeLabels: Record<string, string> = {
 };
 
 export default function CampaignRulesPage() {
-  const { toast } = useToast();
+  const { toast, success, error: showError } = useToast();
   const [rules, setRules] = useState<CampaignRule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewModal, setShowNewModal] = useState(false);
@@ -123,10 +123,10 @@ export default function CampaignRulesPage() {
       });
       if (response.ok) {
         fetchRules();
-        toast.success('Regla actualizada exitosamente');
+        success('Regla actualizada exitosamente');
       }
     } catch (error) {
-        toast.error('Error actualizando la regla');
+        showError('Error actualizando la regla');
     }
   };
 
@@ -137,15 +137,11 @@ export default function CampaignRulesPage() {
         method: 'DELETE',
       });
       if (response.ok) {
-        toast.success('Regla eliminada', 'La regla ha sido eliminada exitosamente');
+        success('Regla eliminada', 'La regla ha sido eliminada exitosamente');
         fetchRules();
       }
     } catch (error) {
-        toast({
-          title: 'Error',
-          description: 'No se pudo eliminar la regla',
-          variant: 'error',
-        });
+        showError('Error', 'No se pudo eliminar la regla');
     } finally {
       setDeleteRuleId(null);
       setShowDeleteDialog(false);
@@ -159,8 +155,7 @@ export default function CampaignRulesPage() {
 
   const handleSaveRule = async () => {
     if (!formData.name.trim() || !formData.template_content.trim()) {
-      setErrorMessage('Por favor completa todos los campos requeridos');
-      setTimeout(() => setErrorMessage(''), 3000);
+      showError('Error', 'Por favor completa todos los campos requeridos');
       return;
     }
 
@@ -179,7 +174,7 @@ export default function CampaignRulesPage() {
         fetchRules();
         setShowNewModal(false);
         resetForm();
-        toast.success(editingRule ? 'Regla actualizada' : 'Regla creada exitosamente');
+        success(editingRule ? 'Regla actualizada' : 'Regla creada exitosamente');
       } else {
         throw new Error('Error guardando la regla');
       }

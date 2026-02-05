@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/db";
-import { AgentEngine } from "@repo/ai-agents";
+import { prisma } from "@/lib/database";
+import { AgentEngine } from "@/lib/ai-agents";
 import { buildChatbotSettings, validateAIConfiguration } from "@/lib/build-chatbot-settings";
+import { sendWhatsAppMessage } from "@/lib/kapso-api";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const message = String(body.message || "").trim();
+    const testKapso = body.test_kapso === true;
+    const testPhone = String(body.test_phone || "").trim();
+
     if (!message) {
       return NextResponse.json(
         { detail: "Message is required" },
@@ -61,9 +65,9 @@ export async function POST(request: Request) {
 
     // Create AgentEngine instance
     const agent = new AgentEngine(chatbotSettings);
+    await agent.initialize();
 
     // Create temporary session for testing
-    // Note: isNewSession is false because we want to test the AI directly, not get the greeting
     const sessionData = {
       sessionId: `test-${Date.now()}`,
       isNewSession: false,
@@ -78,14 +82,28 @@ export async function POST(request: Request) {
     const response = await agent.processMessage(message, sessionData);
     console.log("[TEST_CHAT] Response received:", response);
 
-    return NextResponse.json({
+    const result: any = {
       message: response.message,
       configured: true,
       aiEnabled: true,
       success: response.success,
       provider: chatbotSettings.ai.provider,
       model: chatbotSettings.ai.model,
-    });
+    };
+
+    // Test Kapso integration if requested
+    if (testKapso && response.message && testPhone) {
+      console.log("[TEST_CHAT] Testing Kapso integration to", testPhone);
+      const kapsoResult = await sendWhatsAppMessage(testPhone, response.message);
+      result.kapsoTest = {
+        sent: kapsoResult.success,
+        messageId: kapsoResult.message_id,
+        error: kapsoResult.error,
+      };
+      console.log("[TEST_CHAT] Kapso result:", kapsoResult);
+    }
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error("[TEST_CHAT] Error:", error);
     return NextResponse.json(

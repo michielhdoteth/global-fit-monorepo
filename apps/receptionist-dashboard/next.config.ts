@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   compress: true,
   productionBrowserSourceMaps: false,
+  output: 'standalone',
   turbopack: {
     root: path.resolve(__dirname, "..", ".."),
   },

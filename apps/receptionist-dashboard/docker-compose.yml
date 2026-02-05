@@ -1,0 +1,33 @@
+services:
+  dashboard:
+    build:
+      context: ../..
+      dockerfile: apps/receptionist-dashboard/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=${DATABASE_URL}
+      - KAPSO_API_KEY=${KAPSO_API_KEY}
+      - KAPSO_WEBHOOK_TOKEN=${KAPSO_WEBHOOK_TOKEN}
+      - WHATSAPP_PROVIDER=${WHATSAPP_PROVIDER}
+      - NEXT_PUBLIC_WHATSAPP_PHONE=${NEXT_PUBLIC_WHATSAPP_PHONE}
+      - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - AUTH_SECRET=${AUTH_SECRET}
+    restart: unless-stopped
+
+  # Nginx reverse proxy for SSL
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - dashboard
+    restart: unless-stopped

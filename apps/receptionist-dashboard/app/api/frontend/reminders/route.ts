@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json(
-      reminders.map(reminder => ({
+      reminders.map((reminder: any) => ({
         id: reminder.id,
         client: reminder.client?.name || reminder.name || "",
         phone: reminder.client?.phone || reminder.celphone || "",

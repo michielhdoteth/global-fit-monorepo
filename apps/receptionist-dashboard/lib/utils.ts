@@ -16,10 +16,6 @@ export function getInitials(name: string): string {
     .toUpperCase();
 }
 
-export function capitalize(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-}
-
 export function formatDate(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -61,8 +57,9 @@ export function mapAppointmentStatus(status: string): string {
   return map[status] || status;
 }
 
-// ============== API HELPERS ==============
-
-export function createApiError(message: string, status: number = 500) {
-  return { error: message, status };
-}
+// Re-export from submodules to avoid duplication
+export type { ApiResponse, PaginatedResponse } from './utils/api';
+export { successResponse, errorResponse, paginatedResponse, parseQueryParams, getPaginationOffset, createApiError } from './utils/api';
+export { capitalize, toTitleCase, toCamelCase, toKebabCase, toSnakeCase, truncate, repeat, reverse, countOccurrences, extractNumbers, removeExtraWhitespace, generateRandomString, generateSlug, startsWith, endsWith, containsIgnoreCase } from './utils/string';
+export { formatDateAsString, isWithinBusinessHours, getDayOfWeek, addDays, isToday, isOverdue, isUpcoming, getTimeDifference, formatTimeAsString, parseDateString } from './utils/date';
+export { isValidEmail, isValidPhoneNumber, isValidUrl, validatePasswordStrength, isAlphanumeric, isValidDateString, isValidTimeString, sanitizeString, hasRequiredFields } from './utils/validation';

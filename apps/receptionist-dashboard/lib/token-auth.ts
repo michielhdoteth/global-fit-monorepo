@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { prisma } from "@repo/database";
+import { prisma } from "@/lib/database";
 
 export interface AuthUserPayload {
   sub: number;

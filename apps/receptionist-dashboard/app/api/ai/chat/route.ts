@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@repo/database";
+import { prisma } from "@/lib/database";
 import { requireUser } from "@/lib/token-auth";
-import { successResponse, errorResponse } from "@repo/utils";
-import { AgentEngine } from "@repo/ai-agents";
+import { successResponse, errorResponse } from "@/lib/utils";
+import { AgentEngine } from "@/lib/ai-agents";
 import { buildChatbotSettings } from "@/lib/build-chatbot-settings";
 import { z } from "zod";
 
@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
 
     // Initialize agent engine
     const agent = new AgentEngine(chatbotSettings);
+    await agent.initialize(); // Load keyword rules from database
 
     // Load conversation history
     const conversationHistory = await prisma.message.findMany({

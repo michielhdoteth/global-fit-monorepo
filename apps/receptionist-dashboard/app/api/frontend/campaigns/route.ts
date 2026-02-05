@@ -25,12 +25,12 @@ export async function GET() {
   try {
     const campaigns = await prisma.campaign.findMany({ orderBy: { createdAt: "desc" } });
     console.log("[CAMPAIGNS] Found campaigns:", campaigns.length);
-    
+
     return NextResponse.json(
       campaigns.map(campaign => {
         // Determinar si está activa basado en las fechas
         const isActive = isCampaignActive(campaign);
-        
+
         return {
           id: campaign.id, name: campaign.name, description: campaign.description,
           status: isActive ? 'Active' : mapCampaignStatus(campaign.status),

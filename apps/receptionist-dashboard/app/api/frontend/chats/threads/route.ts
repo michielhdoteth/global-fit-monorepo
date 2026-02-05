@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/db";
+import { prisma } from "@/lib/database";
 import { getInitials, createApiError } from "@/lib/utils";
 
 export async function GET() {
@@ -10,7 +10,7 @@ export async function GET() {
     });
 
     return NextResponse.json(
-      conversations.map(conversation => {
+      conversations.map((conversation: any) => {
         const lastMessage = conversation.messages[0];
         return {
           id: conversation.id,

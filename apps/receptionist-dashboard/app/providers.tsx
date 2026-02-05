@@ -83,15 +83,7 @@ export function useAuth() {
   return context;
 }
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProviderComponent>
-        {children}
-      </AuthProviderComponent>
-    </QueryClientProvider>
-  );
-}
+
 
 const NAV_ITEMS = [
   { id: "dashboard", label: "Panel de Control", icon: LayoutDashboard, path: "/" },

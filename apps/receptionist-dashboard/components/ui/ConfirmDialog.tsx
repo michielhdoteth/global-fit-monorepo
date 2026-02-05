@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
-import { Button } from './Button';
 import { clsx } from 'clsx';
 
 interface ConfirmDialogProps {
@@ -77,18 +76,22 @@ export function ConfirmDialog({
 
           <div className="flex gap-3 mt-6">
             <Dialog.Close asChild>
-              <Button variant="outline" className="flex-1">
+              <button className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-700 transition-all">
                 {cancelText}
-              </Button>
+              </button>
             </Dialog.Close>
-            <Button
+            <button
               onClick={handleConfirm}
-              loading={isLoading}
-              className={confirmButtonClass}
-              variant={variant === 'destructive' ? 'destructive' : 'default'}
+              disabled={isLoading}
+              className={clsx(
+                'flex-1 border border-transparent rounded-lg px-4 py-2 text-white transition-all disabled:opacity-50',
+                variant === 'destructive'
+                  ? 'bg-red-600 hover:bg-red-700'
+                  : 'bg-primary-500 hover:bg-primary-600'
+              )}
             >
-              {confirmText}
-            </Button>
+              {isLoading ? 'Cargando...' : confirmText}
+            </button>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

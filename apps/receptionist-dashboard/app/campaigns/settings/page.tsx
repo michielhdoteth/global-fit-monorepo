@@ -123,12 +123,10 @@ export default function CampaignRulesPage() {
       });
       if (response.ok) {
         fetchRules();
-        setSuccessMessage('Regla actualizada exitosamente');
-        setTimeout(() => setSuccessMessage(''), 3000);
+        toast.success('Regla actualizada exitosamente');
       }
     } catch (error) {
-      setErrorMessage('Error actualizando la regla');
-      setTimeout(() => setErrorMessage(''), 3000);
+        toast.error('Error actualizando la regla');
     }
   };
 
@@ -143,7 +141,11 @@ export default function CampaignRulesPage() {
         fetchRules();
       }
     } catch (error) {
-      toast.error('Error', 'No se pudo eliminar la regla');
+        toast({
+          title: 'Error',
+          description: 'No se pudo eliminar la regla',
+          variant: 'error',
+        });
     } finally {
       setDeleteRuleId(null);
       setShowDeleteDialog(false);
@@ -177,14 +179,16 @@ export default function CampaignRulesPage() {
         fetchRules();
         setShowNewModal(false);
         resetForm();
-        setSuccessMessage(editingRule ? 'Regla actualizada' : 'Regla creada exitosamente');
-        setTimeout(() => setSuccessMessage(''), 3000);
+        toast.success(editingRule ? 'Regla actualizada' : 'Regla creada exitosamente');
       } else {
         throw new Error('Error guardando la regla');
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Error guardando la regla');
-      setTimeout(() => setErrorMessage(''), 3000);
+        toast({
+          title: 'Error',
+          description: 'Error guardando la regla',
+          variant: 'error',
+        });
     } finally {
       setIsLoading(false);
     }

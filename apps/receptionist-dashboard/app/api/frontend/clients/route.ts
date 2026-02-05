@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { getInitials, mapClientStatus, createApiError } from "@/lib/utils";
+import { verifyAuthToken, getBearerToken } from "@/lib/token-auth";
 
-export async function GET() {
+function checkAuth(request: Request) {
+  const token = getBearerToken(request.headers.get("authorization"));
+  return token && verifyAuthToken(token);
+}
+
+export async function GET(request: Request) {
+  if (!checkAuth(request)) {
+    return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const clients = await prisma.client.findMany({ orderBy: { createdAt: "desc" } });
     return NextResponse.json(
@@ -23,6 +33,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!checkAuth(request)) {
+    return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { name, email, phone, plan } = body;

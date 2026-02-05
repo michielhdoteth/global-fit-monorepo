@@ -171,7 +171,6 @@ model Appointment {
   updatedAt         DateTime          @updatedAt
 
   client            Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  reminders         Reminder[]
 
   @@index([clientId])
   @@index([date])
@@ -237,24 +236,19 @@ model CampaignRuleTarget {
 
 model Reminder {
   id        Int           @id @default(autoincrement())
-  type      ReminderType @default(GENERAL)
+  name      String
+  celphone  String
   message   String
-  status    ReminderStatus @default(PENDING)
-  sendAt    DateTime?
-  sentAt    DateTime?
-  clientId  Int?
-  appointmentId Int?
-  channel   String?       // "whatsapp", "email", "sms"
-  retries   Int           @default(0)
+  sendDate  DateTime
+  endDate   DateTime?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
+  clientId  Int
 
-  client    Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
-  @@index([appointmentId])
-  @@index([status])
+  @@index([sendDate])
 }
 
 // ============================================================================

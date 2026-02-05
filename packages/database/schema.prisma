@@ -188,13 +188,13 @@ model Campaign {
   status    CampaignStatus @default(DRAFT)
   type      String?       // "email", "whatsapp", "sms"
   content   String?
-  clientId  Int
+  clientId  Int?
   startDate DateTime?
   endDate   DateTime?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client    Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
   @@index([status])

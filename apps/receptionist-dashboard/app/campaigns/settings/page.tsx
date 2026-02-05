@@ -277,10 +277,10 @@ export default function CampaignRulesPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="font-semibold text-gray-900 dark:text-white">{rule.name}</h3>
-                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
                         {ruleTypeLabels[rule.rule_type] || rule.rule_type}
                       </span>
-                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
                         {triggerLabels[rule.trigger_event] || rule.trigger_event}
                       </span>
                     </div>

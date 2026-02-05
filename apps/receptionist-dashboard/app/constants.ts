@@ -26,7 +26,7 @@ export const API_ENDPOINTS = {
   SETTINGS: '/api/frontend/settings',
 } as const;
 
-export const DEFAULT_ADMIN_EMAIL = 'admin@globalfit.com';
+export const DEFAULT_ADMIN_EMAIL = 'admin@globalfit.com.mx';
 
 export const CAMPAIGN_STATUS = {
   ACTIVE: 'Active',

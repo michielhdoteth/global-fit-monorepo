@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       type: body.media_type || null,
       content: body.template_content || body.content || null,
       clientId: resolvedClientId,
-      startDate: body.scheduled_date ? new Date(body.scheduled_date) : null,
+      startDate: new Date(),
       endDate: null,
     },
   });

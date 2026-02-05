@@ -1,14 +1,23 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { mapReminderStatus, createApiError } from "@/lib/utils";
+import { createApiError } from "@/lib/utils";
+import { verifyAuthToken, getBearerToken } from "@/lib/token-auth";
+
+function checkAuth(request: Request) {
+  const token = getBearerToken(request.headers.get("authorization"));
+  return token && verifyAuthToken(token);
+}
 
 export async function GET(request: Request) {
+  if (!checkAuth(request)) {
+    return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const url = new URL(request.url);
     const statusFilter = url.searchParams.get("status_filter");
 
     const reminders = await prisma.reminder.findMany({
-      where: statusFilter ? { status: statusFilter.toUpperCase() as any } : {},
       include: { client: true },
       orderBy: { createdAt: "desc" },
     });
@@ -16,13 +25,14 @@ export async function GET(request: Request) {
     return NextResponse.json(
       reminders.map((reminder: any) => ({
         id: reminder.id,
-        client: reminder.client?.name || "",
-        phone: reminder.client?.phone || "",
-        type: reminder.type.toLowerCase(),
+        client: reminder.client?.name || reminder.name || "",
+        phone: reminder.client?.phone || reminder.celphone || "",
+        name: reminder.name,
+        celphone: reminder.celphone,
         message: reminder.message,
-        scheduled_time: reminder.sendAt?.toISOString() || "",
-        status: mapReminderStatus(reminder.status),
-        sent_at: reminder.sentAt?.toISOString() || null,
+        scheduled_time: reminder.sendDate?.toISOString() || "",
+        end_date: reminder.endDate?.toISOString() || null,
+        status: "Pending",
         created_at: reminder.createdAt.toISOString(),
       }))
     );
@@ -33,27 +43,47 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!checkAuth(request)) {
+    return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
-    const { client_id, type, message, scheduled_time } = body;
+    const { name, celphone, message, sendDate, endDate, clientId } = body;
 
-    if (!client_id || !message) {
-      return NextResponse.json(createApiError("Client ID and message are required", 400), { status: 400 });
+    if (!name || !celphone || !message || !sendDate) {
+      return NextResponse.json(createApiError("Name, celphone, message and sendDate are required", 400), { status: 400 });
+    }
+
+    let validClientId = clientId ? Number(clientId) : null;
+    if (!validClientId) {
+      const defaultClient = await prisma.client.findFirst();
+      if (defaultClient) {
+        validClientId = defaultClient.id;
+      } else {
+        return NextResponse.json(createApiError("No client found and no default client available", 400), { status: 400 });
+      }
+    } else {
+      const clientExists = await prisma.client.findUnique({ where: { id: validClientId } });
+      if (!clientExists) {
+        return NextResponse.json(createApiError("Client not found", 400), { status: 400 });
+      }
     }
 
     const reminder = await prisma.reminder.create({
       data: {
-        clientId: Number(client_id),
-        type: type?.toUpperCase() || "GENERAL",
+        name,
+        celphone,
         message,
-        sendAt: scheduled_time ? new Date(scheduled_time) : null,
-        status: "PENDING",
+        sendDate: new Date(sendDate),
+        endDate: endDate ? new Date(endDate) : null,
+        clientId: validClientId,
       },
     });
 
-    return NextResponse.json({ id: reminder.id, status: "Pending" });
+    return NextResponse.json({ id: reminder.id, status: "Created" });
   } catch (error) {
     console.error("[REMINDERS] Error creating reminder:", error);
-    return NextResponse.json(createApiError("Failed to create reminder", 500), { status: 500 });
+    return NextResponse.json(createApiError(error instanceof Error ? error.message : "Failed to create reminder", 500), { status: 500 });
   }
 }

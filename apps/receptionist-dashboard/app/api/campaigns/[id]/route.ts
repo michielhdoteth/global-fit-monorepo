@@ -37,6 +37,11 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
   }
 
+  // Solo ADMIN o SUPER_ADMIN pueden borrar campañas
+  if (currentUser.role !== "ADMIN" && currentUser.role !== "SUPER_ADMIN") {
+    return NextResponse.json({ detail: "Forbidden - Insufficient permissions" }, { status: 403 });
+  }
+
   const { id } = await params;
 
   await prisma.campaign.delete({ where: { id: Number(id) } });

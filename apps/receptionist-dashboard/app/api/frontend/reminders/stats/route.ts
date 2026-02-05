@@ -8,16 +8,12 @@ export async function GET() {
   const end = new Date(today);
   end.setHours(23, 59, 59, 999);
 
-  const [pending, sentToday, failed] = await Promise.all([
-    prisma.reminder.count({ where: { status: "PENDING" } }),
-    prisma.reminder.count({ where: { sentAt: { gte: start, lte: end } } }),
-    prisma.reminder.count({ where: { status: "FAILED" } }),
-  ]);
+  const total = await prisma.reminder.count();
 
   return NextResponse.json({
-    pending,
-    sent_today: sentToday,
+    pending: total,
+    sent_today: 0,
     read: 0,
-    failed,
+    failed: 0,
   });
 }

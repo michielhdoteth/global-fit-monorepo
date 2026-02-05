@@ -1,25 +1,21 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { requireUser } from "@/lib/token-auth";
+import { auth } from "@/lib/auth";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
 export async function POST(request: Request, { params }: RouteParams) {
-  const currentUser = await requireUser(request.headers.get("authorization"));
-  if (!currentUser) {
+  const session = await auth();
+  if (!session?.user) {
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
   }
 
   const { id } = await params;
 
-  const reminder = await prisma.reminder.update({
+  const reminder = await prisma.reminder.findUnique({
     where: { id: Number(id) },
-    data: {
-      status: "SENT",
-      sentAt: new Date(),
-    },
   });
 
   return NextResponse.json({ success: true, reminder });

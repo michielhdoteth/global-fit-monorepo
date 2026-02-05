@@ -38,17 +38,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ detail: "Client not found" }, { status: 400 });
   }
 
-  const reminderType = body.reminder_type
-    ? String(body.reminder_type).toUpperCase()
-    : "GENERAL";
-
   const reminder = await prisma.reminder.create({
     data: {
-      type: reminderType as any,
+      name: body.name || "",
+      celphone: body.celphone || phoneNumber || "",
       message: body.message_preview || body.message || "",
-      status: "PENDING",
-      sendAt: body.scheduled_time ? new Date(body.scheduled_time) : null,
-      channel: body.channel || "WhatsApp",
+      sendDate: body.scheduled_time ? new Date(body.scheduled_time) : new Date(),
+      endDate: body.end_date ? new Date(body.end_date) : null,
       clientId,
     },
   });

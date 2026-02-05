@@ -1,9 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import PageLayout from '../PageLayout';
-import { Search, Plus, Bell, Clock, MessageCircle, AlertCircle, CheckCircle, XCircle, Calendar, Repeat, Send, Users, Settings, List } from 'lucide-react';
+import { Search, Plus, Bell, Clock, MessageCircle, AlertCircle, CheckCircle, XCircle, Calendar, Repeat, Send, Users, Settings, List, MoreVertical, Edit, Trash2, Eye, X } from 'lucide-react';
+
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem('token');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
 
 interface Reminder {
   id: number;
@@ -22,6 +27,12 @@ interface ReminderStats {
   sent_today: number;
   read: number;
   failed: number;
+}
+
+interface Client {
+  id: number;
+  name: string;
+  phone: string;
 }
 
 const statusIcons: Record<string, typeof AlertCircle> = {
@@ -50,6 +61,24 @@ const typeLabels: Record<string, string> = {
   general: 'General',
 };
 
+function formatDate(dateString: string): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+interface EditReminderData {
+  name?: string;
+  celphone?: string;
+  message?: string;
+  sendDate?: string;
+  endDate?: string | null;
+  clientId?: number | null;
+}
+
 export default function RemindersPage() {
   const router = useRouter();
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -57,6 +86,8 @@ export default function RemindersPage() {
   const [stats, setStats] = useState<ReminderStats | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
   const [showTypeModal, setShowTypeModal] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [deletingReminder, setDeletingReminder] = useState<Reminder | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
 
@@ -70,7 +101,7 @@ export default function RemindersPage() {
       const url = statusFilter
         ? `/api/frontend/reminders?status_filter=${statusFilter}`
         : '/api/frontend/reminders';
-      const response = await fetch(url);
+      const response = await fetch(url, { headers: getAuthHeaders() });
       if (response.ok) {
         const data = await response.json();
         setReminders(data);
@@ -84,7 +115,7 @@ export default function RemindersPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/frontend/reminders/stats');
+      const response = await fetch('/api/frontend/reminders/stats', { headers: getAuthHeaders() });
       if (response.ok) {
         const data = await response.json();
         setStats(data);
@@ -98,6 +129,7 @@ export default function RemindersPage() {
     try {
       const response = await fetch(`/api/reminders/${reminderId}/send`, {
         method: 'POST',
+        headers: getAuthHeaders(),
       });
       if (response.ok) {
         fetchReminders();
@@ -105,6 +137,48 @@ export default function RemindersPage() {
       }
     } catch (error) {
       console.error('Failed to send reminder:', error);
+    }
+  };
+
+  const handleDeleteReminder = async () => {
+    if (!deletingReminder) return;
+    
+    try {
+      const response = await fetch(`/api/reminders/${deletingReminder.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (response.ok) {
+        setDeletingReminder(null);
+        fetchReminders();
+        fetchStats();
+      } else {
+        const error = await response.json();
+        console.error('Error deleting reminder:', error);
+        alert('Error al eliminar el recordatorio: ' + (error.detail || 'Error desconocido'));
+      }
+    } catch (error) {
+      console.error('Failed to delete reminder:', error);
+      alert('Error al eliminar el recordatorio');
+    }
+  };
+
+  const handleEditReminder = async (data: EditReminderData) => {
+    if (!editingReminder) return;
+
+    try {
+      const response = await fetch(`/api/reminders/${editingReminder.id}`, {
+        method: 'PUT',
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (response.ok) {
+        setEditingReminder(null);
+        fetchReminders();
+        fetchStats();
+      }
+    } catch (error) {
+      console.error('Failed to update reminder:', error);
     }
   };
 
@@ -262,12 +336,12 @@ export default function RemindersPage() {
                           <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
                             <div className="flex items-center space-x-1">
                               <Calendar size={14} />
-                              <span>{reminder.scheduled_time}</span>
+                              <span>{formatDate(reminder.scheduled_time)}</span>
                             </div>
                             {reminder.sent_at && (
                               <div className="flex items-center space-x-1">
                                 <Clock size={14} />
-                                <span>Enviado: {new Date(reminder.sent_at).toLocaleString()}</span>
+                                <span>Enviado: {formatDate(reminder.sent_at)}</span>
                               </div>
                             )}
                           </div>
@@ -283,9 +357,27 @@ export default function RemindersPage() {
                             <span>Enviar</span>
                           </button>
                         )}
-                        <button className="px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white text-sm rounded-lg transition-colors">
-                          Ver Detalles
-                        </button>
+                        <div className="relative group">
+                          <button className="p-2 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg transition-colors">
+                            <MoreVertical size={20} className="text-gray-500" />
+                          </button>
+                          <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-dark-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                            <button
+                              onClick={() => setEditingReminder(reminder)}
+                              className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700 flex items-center space-x-2 first:rounded-t-xl"
+                            >
+                              <Edit size={16} />
+                              <span>Editar</span>
+                            </button>
+                            <button
+                              onClick={() => setDeletingReminder(reminder)}
+                              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-dark-700 flex items-center space-x-2 last:rounded-b-xl"
+                            >
+                              <Trash2 size={16} />
+                              <span>Eliminar</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -321,6 +413,22 @@ export default function RemindersPage() {
               setShowTypeModal(false);
               router.push('/reminders/settings?tab=scheduled');
             }}
+          />
+        )}
+
+        {editingReminder && (
+          <EditReminderModal
+            reminder={editingReminder}
+            onClose={() => setEditingReminder(null)}
+            onSave={handleEditReminder}
+          />
+        )}
+
+        {deletingReminder && (
+          <DeleteConfirmationModal
+            reminder={deletingReminder}
+            onClose={() => setDeletingReminder(null)}
+            onConfirm={handleDeleteReminder}
           />
         )}
       </div>
@@ -408,34 +516,81 @@ function ReminderTypeModal({
 }
 
 function NewReminderModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [clientName, setClientName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [reminderType, setReminderType] = useState<'appointment' | 'payment' | 'follow_up' | 'general'>('general');
+  const [clients, setClients] = useState<Client[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [selectedClientName, setSelectedClientName] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [celphone, setCelphone] = useState('');
+  const [reminderName, setReminderName] = useState('');
   const [message, setMessage] = useState('');
-  const [scheduledTime, setScheduledTime] = useState('');
-  const [isRecurring, setIsRecurring] = useState(false);
+  const [sendDate, setSendDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const response = await fetch('/api/frontend/clients', { headers: getAuthHeaders() });
+        if (response.ok) {
+          const data = await response.json();
+          setClients(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch clients:', error);
+      }
+    };
+    fetchClients();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredClients = clients.filter(client =>
+    client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    client.phone.includes(searchQuery)
+  );
+
+  const handleSelectClient = (client: Client) => {
+    setSelectedClientId(client.id);
+    setSelectedClientName(client.name);
+    setCelphone(client.phone);
+    setSearchQuery(client.name);
+    setShowDropdown(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/reminders', {
+      const response = await fetch('/api/frontend/reminders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          client_name: clientName,
-          phone_number: phone,
-          reminder_type: reminderType,
-          message_preview: message,
-          scheduled_time: scheduledTime,
-          channel: 'WhatsApp',
+          name: reminderName,
+          celphone: celphone,
+          message: message,
+          sendDate: sendDate,
+          endDate: endDate || null,
+          clientId: selectedClientId,
+          channel: 'whatsapp',
         }),
       });
 
       if (response.ok) {
         onCreated();
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to create reminder:', errorData);
       }
     } catch (error) {
       console.error('Failed to create reminder:', error);
@@ -453,49 +608,69 @@ function NewReminderModal({ onClose, onCreated }: { onClose: () => void; onCreat
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Nombre del cliente
-              </label>
-              <input
-                type="text"
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                placeholder="Juan Pérez"
-                required
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Teléfono
-              </label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+1234567890"
-                required
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
-              />
-            </div>
+          <div ref={dropdownRef} className="relative">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Buscar Cliente
+            </label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowDropdown(true);
+                if (e.target.value === '') {
+                  setSelectedClientId(null);
+                  setSelectedClientName('');
+                  setCelphone('');
+                }
+              }}
+              onFocus={() => setShowDropdown(true)}
+              placeholder="Escribe el nombre o teléfono del cliente..."
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
+            />
+            {showDropdown && filteredClients.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-dark-800 border border-gray-300 dark:border-gray-600 rounded-xl shadow-lg max-h-60 overflow-auto">
+                {filteredClients.map((client) => (
+                  <button
+                    key={client.id}
+                    type="button"
+                    onClick={() => handleSelectClient(client)}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-dark-700 border-b border-gray-100 dark:border-gray-700 last:border-0"
+                  >
+                    <div className="font-medium text-gray-900 dark:text-white">{client.name}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{client.phone}</div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Tipo de recordatorio
+              Nombre del Recordatorio
             </label>
-            <select
-              value={reminderType}
-              onChange={(e) => setReminderType(e.target.value as any)}
+            <input
+              type="text"
+              value={reminderName}
+              onChange={(e) => setReminderName(e.target.value)}
+              placeholder="Ej: Recordatorio de cita..."
+              required
               className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
-            >
-              <option value="appointment">Cita</option>
-              <option value="payment">Pago</option>
-              <option value="follow_up">Seguimiento</option>
-              <option value="general">General</option>
-            </select>
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Celular
+            </label>
+            <input
+              type="text"
+              value={celphone}
+              onChange={(e) => setCelphone(e.target.value)}
+              placeholder="Ej: 528331234567"
+              required
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
+            />
           </div>
 
           <div>
@@ -514,29 +689,28 @@ function NewReminderModal({ onClose, onCreated }: { onClose: () => void; onCreat
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Programar para
+              Fecha de Envío
             </label>
             <input
               type="datetime-local"
-              value={scheduledTime}
-              onChange={(e) => setScheduledTime(e.target.value)}
+              value={sendDate}
+              onChange={(e) => setSendDate(e.target.value)}
               required
               className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
             />
           </div>
 
-          <label className="flex items-center space-x-2 cursor-pointer">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Fecha de Fin (Opcional)
+            </label>
             <input
-              type="checkbox"
-              checked={isRecurring}
-              onChange={(e) => setIsRecurring(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+              type="datetime-local"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
             />
-            <span className="text-sm text-gray-700 dark:text-gray-300 flex items-center space-x-1">
-              <Repeat size={14} />
-              <span>Recordatorio recurrente</span>
-            </span>
-          </label>
+          </div>
 
           <div className="flex space-x-3 pt-4">
             <button
@@ -548,13 +722,278 @@ function NewReminderModal({ onClose, onCreated }: { onClose: () => void; onCreat
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !clientName || !phone || !message || !scheduledTime}
+              disabled={isSubmitting || !reminderName || !celphone || !message || !sendDate}
               className="flex-1 px-4 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl transition-colors disabled:opacity-50"
             >
               {isSubmitting ? 'Creando...' : 'Crear Recordatorio'}
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function EditReminderModal({ reminder, onClose, onSave }: { reminder: Reminder; onClose: () => void; onSave: (data: EditReminderData) => void }) {
+  const [clients, setClients] = useState<Client[]>([]);
+  const [searchQuery, setSearchQuery] = useState(reminder.client);
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [celphone, setCelphone] = useState(reminder.phone);
+  const [reminderName, setReminderName] = useState(reminder.client);
+  const [message, setMessage] = useState(reminder.message);
+  const [sendDate, setSendDate] = useState(reminder.scheduled_time ? new Date(reminder.scheduled_time).toISOString().slice(0, 16) : '');
+  const [endDate, setEndDate] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const response = await fetch('/api/frontend/clients', { headers: getAuthHeaders() });
+        if (response.ok) {
+          const data = await response.json();
+          setClients(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch clients:', error);
+      }
+    };
+    fetchClients();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredClients = clients.filter(client =>
+    client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    client.phone.includes(searchQuery)
+  );
+
+  const handleSelectClient = (client: Client) => {
+    setSelectedClientId(client.id);
+    setSearchQuery(client.name);
+    setCelphone(client.phone);
+    setShowDropdown(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    onSave({
+      name: reminderName,
+      celphone: celphone,
+      message: message,
+      sendDate: sendDate,
+      endDate: endDate || null,
+      clientId: selectedClientId,
+    });
+
+    setIsSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-dark-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Editar Recordatorio</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Modifica los detalles del recordatorio</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg">
+            <X size={20} className="text-gray-500" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div ref={dropdownRef} className="relative">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Buscar Cliente
+            </label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowDropdown(true);
+              }}
+              onFocus={() => setShowDropdown(true)}
+              placeholder="Escribe el nombre o teléfono del cliente..."
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
+            />
+            {showDropdown && filteredClients.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-dark-800 border border-gray-300 dark:border-gray-600 rounded-xl shadow-lg max-h-60 overflow-auto">
+                {filteredClients.map((client) => (
+                  <button
+                    key={client.id}
+                    type="button"
+                    onClick={() => handleSelectClient(client)}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-dark-700 border-b border-gray-100 dark:border-gray-700 last:border-0"
+                  >
+                    <div className="font-medium text-gray-900 dark:text-white">{client.name}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{client.phone}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Nombre del Recordatorio
+            </label>
+            <input
+              type="text"
+              value={reminderName}
+              onChange={(e) => setReminderName(e.target.value)}
+              placeholder="Ej: Recordatorio de cita..."
+              required
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Celular
+            </label>
+            <input
+              type="text"
+              value={celphone}
+              onChange={(e) => setCelphone(e.target.value)}
+              placeholder="Ej: 528331234567"
+              required
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Mensaje
+            </label>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Recuerda tu cita mañana a las 10am..."
+              rows={3}
+              required
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Fecha de Envío
+            </label>
+            <input
+              type="datetime-local"
+              value={sendDate}
+              onChange={(e) => setSendDate(e.target.value)}
+              required
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Fecha de Fin (Opcional)
+            </label>
+            <input
+              type="datetime-local"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
+            />
+          </div>
+
+          <div className="flex space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || !reminderName || !celphone || !message || !sendDate}
+              className="flex-1 px-4 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl transition-colors disabled:opacity-50"
+            >
+              {isSubmitting ? 'Guardando...' : 'Guardar Cambios'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function DeleteConfirmationModal({ reminder, onClose, onConfirm }: { reminder: Reminder; onClose: () => void; onConfirm: () => Promise<void> }) {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    await onConfirm();
+    setIsDeleting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-dark-800 rounded-2xl w-full max-w-md">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center space-x-3">
+            <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-xl">
+              <Trash2 className="text-red-600 dark:text-red-400" size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Eliminar Recordatorio</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Esta acción no se puede deshacer</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <p className="text-gray-600 dark:text-gray-300">
+            ¿Estás seguro de que deseas eliminar el recordatorio <strong>{reminder.client}</strong>?
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            Mensaje: {reminder.message}
+          </p>
+        </div>
+
+        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex space-x-3">
+          <button
+            onClick={onClose}
+            disabled={isDeleting}
+            className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
+          >
+            {isDeleting ? (
+              <>
+                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Eliminando...</span>
+              </>
+            ) : (
+              <>
+                <Trash2 size={18} />
+                <span>Eliminar</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

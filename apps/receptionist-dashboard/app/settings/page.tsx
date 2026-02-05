@@ -381,6 +381,9 @@ export default function SettingsPage() {
 
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No hay sesión activa. Por favor inicia sesión nuevamente.');
+      }
       const response = await fetch(`/api/auth/users/${userId}`, {
         method: 'PUT',
         headers: {
@@ -390,8 +393,15 @@ export default function SettingsPage() {
         body: JSON.stringify(userData)
       });
 
+      const error = await response.json();
+      
       if (!response.ok) {
-        const error = await response.json();
+        if (response.status === 401) {
+          throw new Error('Tu sesión ha expirado. Por favor inicia sesión nuevamente.');
+        }
+        if (response.status === 403) {
+          throw new Error('No tienes permisos para realizar esta acción.');
+        }
         throw new Error(error.detail || 'Failed to update user');
       }
 
@@ -402,7 +412,7 @@ export default function SettingsPage() {
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Error updating user');
-      setTimeout(() => setErrorMessage(''), 3000);
+      setTimeout(() => setErrorMessage(''), 5000);
     } finally {
       setIsLoading(false);
     }
@@ -417,13 +427,23 @@ export default function SettingsPage() {
 
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No hay sesión activa. Por favor inicia sesión nuevamente.');
+      }
       const response = await fetch(`/api/auth/users/${userId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
 
+      const error = await response.json();
+      
       if (!response.ok) {
-        const error = await response.json();
+        if (response.status === 401) {
+          throw new Error('Tu sesión ha expirado. Por favor inicia sesión nuevamente.');
+        }
+        if (response.status === 403) {
+          throw new Error('No tienes permisos para realizar esta acción. Se requiere rol de Admin o Super Admin.');
+        }
         throw new Error(error.detail || 'Failed to deactivate user');
       }
 
@@ -432,7 +452,7 @@ export default function SettingsPage() {
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Error deactivating user');
-      setTimeout(() => setErrorMessage(''), 3000);
+      setTimeout(() => setErrorMessage(''), 5000);
     } finally {
       setIsLoading(false);
     }
@@ -1385,8 +1405,8 @@ export default function SettingsPage() {
                                     </button>
                                     <button
                                       onClick={() => handleDeleteUser(user.id)}
-                                      className="p-1 text-gray-500 hover:text-red-500 transition-colors disabled:opacity-50"
-                                      disabled={!user.is_active}
+                                      className="p-1 text-gray-500 hover:text-red-500 transition-colors"
+                                      title={user.is_active ? "Desactivar usuario" : "Activar usuario"}
                                     >
                                       <Trash2 size={16} />
                                     </button>

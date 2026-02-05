@@ -62,16 +62,15 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   const now = new Date();
   const offsetDays = rule.daysBefore !== 0 ? rule.daysBefore : rule.daysAfter;
-  const sendAt = new Date(now.getTime() + offsetDays * 24 * 60 * 60 * 1000);
-  sendAt.setHours(rule.sendHour, 0, 0, 0);
+  const sendDate = new Date(now.getTime() + offsetDays * 24 * 60 * 60 * 1000);
 
   const reminders = await prisma.reminder.createMany({
     data: clients.map((client: typeof clients[0]) => ({
-      type: "GENERAL",
+      name: client.name,
+      celphone: client.phone || "",
       message: personalizeMessage(rule.templateMessage, client),
-      status: "PENDING",
-      sendAt,
-      channel: "WhatsApp",
+      sendDate,
+      endDate: null,
       clientId: client.id,
     })),
   });

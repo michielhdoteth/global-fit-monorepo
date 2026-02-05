@@ -1,0 +1,22 @@
+{
+  "name": "@repo/utils",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": ["src"],
+  "exports": {
+    ".": "./src/index.ts",
+    "./whatsapp": "./src/whatsapp.ts",
+    "./date": "./src/date.ts",
+    "./validation": "./src/validation.ts",
+    "./string": "./src/string.ts",
+    "./api": "./src/api.ts"
+  },
+  "dependencies": {
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}

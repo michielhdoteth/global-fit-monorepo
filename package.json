@@ -1,0 +1,36 @@
+{
+  "name": "global-fit",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "bun@1.3.5",
+  "description": "Global Fit - Receptionist Dashboard",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "db:generate": "turbo run db:generate",
+    "db:push": "turbo run db:push",
+    "db:seed": "turbo run db:seed",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "tooling/*"
+  ],
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@repo/eslint-config": "workspace:*",
+    "turbo": "^2.0.0",
+    "@turbo/gen": "^2.0.0",
+    "typescript": "^5.9.0",
+    "eslint": "^9.0.0"
+  },
+  "dependencies": {
+    "@react-email/components": "^1.0.6",
+    "@tanstack/react-query": "^5.90.20",
+    "react-email": "^5.2.5",
+    "resend": "^6.9.1"
+  }
+}

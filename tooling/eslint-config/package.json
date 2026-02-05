@@ -1,0 +1,12 @@
+{
+  "name": "@repo/eslint-config",
+  "version": "0.0.1",
+  "private": true,
+  "main": "index.mjs",
+  "files": ["*.mjs"],
+  "devDependencies": {
+    "eslint": "^9",
+    "eslint-config-next": "^16",
+    "eslint-plugin-react": "^7.35.0"
+  }
+}

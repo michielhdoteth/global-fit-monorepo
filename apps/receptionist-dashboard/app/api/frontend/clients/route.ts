@@ -59,3 +59,62 @@ export async function POST(request: Request) {
     return NextResponse.json(createApiError("Failed to create client", 500), { status: 500 });
   }
 }
+
+export async function PUT(request: Request) {
+  if (!checkAuth(request)) {
+    return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { id, name, email, phone, plan, status } = body;
+
+    if (!id) {
+      return NextResponse.json(createApiError("ID is required", 400), { status: 400 });
+    }
+
+    const client = await prisma.client.update({
+      where: { id: Number(id) },
+      data: {
+        name,
+        email,
+        phone: phone || null,
+        plan: plan || null,
+        status: status || undefined,
+      },
+    });
+
+    return NextResponse.json({
+      id: client.id, name: client.name, email: client.email,
+      phone: client.phone || "", status: mapClientStatus(client.status),
+      plan: client.plan || "", avatar: getInitials(client.name),
+    });
+  } catch (error) {
+    console.error("[CLIENTS] Error updating client:", error);
+    return NextResponse.json(createApiError("Failed to update client", 500), { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  if (!checkAuth(request)) {
+    return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json(createApiError("ID is required", 400), { status: 400 });
+    }
+
+    await prisma.client.delete({
+      where: { id: Number(id) },
+    });
+
+    return NextResponse.json({ status: "Deleted" });
+  } catch (error) {
+    console.error("[CLIENTS] Error deleting client:", error);
+    return NextResponse.json(createApiError("Failed to delete client", 500), { status: 500 });
+  }
+}

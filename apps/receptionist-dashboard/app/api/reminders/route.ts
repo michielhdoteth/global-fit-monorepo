@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/db";
+import { prisma } from "@/lib/database";
 import { requireUser } from "@/lib/token-auth";
 
 export async function GET(request: Request) {
@@ -40,12 +40,13 @@ export async function POST(request: Request) {
 
   const reminder = await prisma.reminder.create({
     data: {
-      name: body.name || "",
-      celphone: body.celphone || phoneNumber || "",
       message: body.message_preview || body.message || "",
-      sendDate: body.scheduled_time ? new Date(body.scheduled_time) : new Date(),
-      endDate: body.end_date ? new Date(body.end_date) : null,
+      sendAt: body.scheduled_time ? new Date(body.scheduled_time) : new Date(),
+      type: body.type || "GENERAL",
       clientId,
+      appointmentId: body.appointmentId ? Number(body.appointmentId) : null,
+      status: "PENDING",
+      channel: body.channel || "whatsapp",
     },
   });
 

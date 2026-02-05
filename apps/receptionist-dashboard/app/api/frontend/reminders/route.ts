@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/db";
+import { prisma } from "@/lib/database";
 import { createApiError } from "@/lib/utils";
 import { verifyAuthToken, getBearerToken } from "@/lib/token-auth";
 
@@ -14,25 +14,20 @@ export async function GET(request: Request) {
   }
 
   try {
-    const url = new URL(request.url);
-    const statusFilter = url.searchParams.get("status_filter");
-
     const reminders = await prisma.reminder.findMany({
       include: { client: true },
-      orderBy: { createdAt: "desc" },
+      orderBy: { sendAt: "desc" },
     });
 
     return NextResponse.json(
       reminders.map((reminder: any) => ({
         id: reminder.id,
-        client: reminder.client?.name || reminder.name || "",
-        phone: reminder.client?.phone || reminder.celphone || "",
-        name: reminder.name,
-        celphone: reminder.celphone,
+        client: reminder.client?.name || "Unknown",
+        phone: reminder.client?.phone || reminder.client?.whatsappNumber || "",
         message: reminder.message,
-        scheduled_time: reminder.sendDate?.toISOString() || "",
-        end_date: reminder.endDate?.toISOString() || null,
-        status: "Pending",
+        scheduled_time: reminder.sendAt?.toISOString() || "",
+        status: reminder.status,
+        type: reminder.type,
         created_at: reminder.createdAt.toISOString(),
       }))
     );
@@ -49,10 +44,10 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { name, celphone, message, sendDate, endDate, clientId } = body;
+    const { message, sendAt, type, clientId, appointmentId } = body;
 
-    if (!name || !celphone || !message || !sendDate) {
-      return NextResponse.json(createApiError("Name, celphone, message and sendDate are required", 400), { status: 400 });
+    if (!message || !sendAt) {
+      return NextResponse.json(createApiError("Message and sendAt are required", 400), { status: 400 });
     }
 
     let validClientId = clientId ? Number(clientId) : null;
@@ -61,23 +56,18 @@ export async function POST(request: Request) {
       if (defaultClient) {
         validClientId = defaultClient.id;
       } else {
-        return NextResponse.json(createApiError("No client found and no default client available", 400), { status: 400 });
-      }
-    } else {
-      const clientExists = await prisma.client.findUnique({ where: { id: validClientId } });
-      if (!clientExists) {
-        return NextResponse.json(createApiError("Client not found", 400), { status: 400 });
+        return NextResponse.json(createApiError("No client found", 400), { status: 400 });
       }
     }
 
     const reminder = await prisma.reminder.create({
       data: {
-        name,
-        celphone,
         message,
-        sendDate: new Date(sendDate),
-        endDate: endDate ? new Date(endDate) : null,
+        sendAt: new Date(sendAt),
+        type: type || "GENERAL",
         clientId: validClientId,
+        appointmentId: appointmentId || null,
+        status: "PENDING",
       },
     });
 

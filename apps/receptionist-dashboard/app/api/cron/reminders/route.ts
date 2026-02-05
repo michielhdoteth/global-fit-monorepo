@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/db";
+import { prisma } from "@/lib/database";
 
 function verifyCron(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   const now = new Date();
   const reminders = await prisma.reminder.findMany({
     where: {
-      sendDate: { lte: now },
+      sendAt: { lte: now },
     },
     include: {
       client: true,

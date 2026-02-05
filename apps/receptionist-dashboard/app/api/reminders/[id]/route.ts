@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/db";
+import { prisma } from "@/lib/database";
 import { verifyAuthToken, getBearerToken } from "@/lib/token-auth";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -34,12 +34,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const reminder = await prisma.reminder.update({
       where: { id: parseInt(id) },
       data: {
-        name: body.name,
-        celphone: body.celphone,
         message: body.message,
-        sendDate: body.sendDate ? new Date(body.sendDate) : undefined,
-        endDate: body.endDate ? new Date(body.endDate) : null,
+        sendAt: body.sendAt ? new Date(body.sendAt) : undefined,
+        type: body.type,
         clientId: body.clientId ? Number(body.clientId) : undefined,
+        appointmentId: body.appointmentId ? Number(body.appointmentId) : undefined,
+        status: body.status,
+        channel: body.channel,
       },
     });
 

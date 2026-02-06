@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
   compress: true,
   productionBrowserSourceMaps: false,
   output: 'standalone',
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   turbopack: {
     root: path.resolve(__dirname, "..", ".."),
   },

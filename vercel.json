@@ -1,8 +1,8 @@
 {
-  "buildCommand": "cd apps/receptionist-dashboard && bun run build",
+  "buildCommand": "npm run build --workspace=apps/receptionist-dashboard",
+  "installCommand": "npm install",
   "outputDirectory": "apps/receptionist-dashboard/.next",
-  "installCommand": "bun install",
-  "framework": null,
+  "framework": "nextjs",
   "crons": [
     {
       "path": "/api/cron/campaigns",

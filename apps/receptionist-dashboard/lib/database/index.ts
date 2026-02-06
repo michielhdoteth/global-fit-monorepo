@@ -5,9 +5,18 @@ export { PrismaClient };
 // Create a singleton instance of Prisma Client
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL is not set!');
+}
+
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
     log:
       process.env.NODE_ENV === "development"
         ? ["query", "error", "warn"]

@@ -11,10 +11,7 @@
     "./enums": "./src/enums.ts",
     "./models": "./src/models.ts"
   },
-  "dependencies": {
-    "@repo/database": "workspace:*"
-  },
-  "devDependencies": {
-    "typescript": "^5"
+"dependencies": {
+    "@repo/database": "file:../database"
   }
 }

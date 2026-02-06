@@ -1,0 +1,18 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "hostinger-mcp": {
+      "type": "local",
+      "command": ["npx", "hostinger-api-mcp@latest"],
+      "environment": {
+        "API_TOKEN": "8q4uEuKk0WpBs2HB8gUrnE9fsV3YrKWFcSRhFRg1a9930ab4"
+      },
+      "enabled": true
+    },
+    "neon": {
+      "type": "remote",
+      "url": "https://mcp.neon.tech/mcp",
+      "enabled": true
+    }
+  }
+}

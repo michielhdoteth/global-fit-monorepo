@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import PageLayout from '../PageLayout';
-import { Search, Plus, Filter, MoreVertical, Users, Mail, Phone, Edit, Trash2, X, Loader2, ChevronDown, Check } from 'lucide-react';
+import { Search, Plus, Filter, MoreVertical, Users, Mail, Phone, Edit, Trash2, X, Loader2, ChevronDown, Check, RefreshCw } from 'lucide-react';
 
 interface Client {
   id: number;
@@ -30,6 +30,9 @@ export default function CRMPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
+  const [evoSyncStatus, setEvoSyncStatus] = useState<{ configured: boolean; enabled: boolean; syncedClients: number } | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -50,7 +53,39 @@ export default function CRMPage() {
 
   useEffect(() => {
     fetchClients();
+    fetchEvoStatus();
   }, []);
+
+  const fetchEvoStatus = async () => {
+    try {
+      const response = await fetch('/api/evo/sync');
+      if (response.ok) {
+        const data = await response.json();
+        setEvoSyncStatus(data);
+      }
+    } catch (err) {
+      console.error('Error fetching Evo status:', err);
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const response = await fetch('/api/evo/sync', { method: 'POST' });
+      const data = await response.json();
+      if (response.ok) {
+        setSyncMessage(data.message);
+        fetchEvoStatus();
+      } else {
+        setSyncMessage(data.error || 'Error al sincronizar');
+      }
+    } catch (err) {
+      setSyncMessage('Error al sincronizar con Evo');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const fetchClients = async () => {
     try {
@@ -153,7 +188,20 @@ export default function CRMPage() {
             <Plus size={20} />
             <span>Nuevo Cliente</span>
           </button>
+          {evoSyncStatus?.configured && evoSyncStatus?.enabled && (
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="flex items-center space-x-2 px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white rounded-xl shadow-lg shadow-purple-500/20 transition-all disabled:opacity-50"
+            >
+              {syncing ? <Loader2 size={20} className="animate-spin" /> : <RefreshCw size={20} />}
+              <span>{syncing ? 'Sincronizando...' : 'Sincronizar con Evo'}</span>
+            </button>
+          )}
         </div>
+        {syncMessage && (
+          <div className="text-sm text-purple-600 dark:text-purple-400">{syncMessage}</div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-12">

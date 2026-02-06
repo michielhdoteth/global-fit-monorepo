@@ -13,17 +13,13 @@
     "./context": "./src/core/context-manager.ts",
     "./providers": "./src/providers/index.ts"
   },
-  "dependencies": {
+"dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
-    "@repo/database": "workspace:*",
-    "@repo/types": "workspace:*",
-    "@repo/utils": "workspace:*",
+    "@repo/database": "file:../database",
+    "@repo/types": "file:../types",
+    "@repo/utils": "file:../utils",
     "ai": "^3.2.0",
     "openai": "^4.70.0",
     "zod": "^3.22.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20",
-    "typescript": "^5"
   }
 }

@@ -8,6 +8,10 @@
       "env": {
         "API_TOKEN": "8q4uEuKk0WpBs2HB8gUrnE9fsV3YrKWFcSRhFRg1a9930ab4"
       }
+    },
+    "neon": {
+      "type": "http",
+      "url": "https://mcp.neon.tech/mcp"
     }
   }
 }

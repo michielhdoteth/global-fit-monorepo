@@ -13,10 +13,12 @@ const inter = Inter({ subsets: ['latin'] });
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" suppressHydrationWarning className={inter.className}>
-      <body className="bg-gray-50 dark:bg-dark-950 text-gray-900 dark:text-gray-100 transition-colors duration-200 antialiased">
-        <Providers>
-          {children}
-        </Providers>
+      <body>
+        <div className="bg-gray-50 dark:bg-dark-950 text-gray-900 dark:text-gray-100 transition-colors duration-200 antialiased">
+          <Providers>
+            {children}
+          </Providers>
+        </div>
       </body>
     </html>
   );

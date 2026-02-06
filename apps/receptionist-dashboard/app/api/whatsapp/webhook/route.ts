@@ -177,12 +177,21 @@ export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("hub.verify_token");
   const challenge = req.nextUrl.searchParams.get("hub.challenge");
 
+  // Check Kapso webhook token first
   if (token === process.env.KAPSO_WEBHOOK_TOKEN) {
+    console.log("[WHATSAPP_WEBHOOK] Kapso verification successful");
     return NextResponse.json(
       JSON.parse(challenge as string),
       { status: 200 }
     );
   }
 
+  // Check Twilio webhook token
+  if (token === process.env.TWILIO_VERIFY_TOKEN) {
+    console.log("[WHATSAPP_WEBHOOK] Twilio verification successful");
+    return NextResponse.json(challenge, { status: 200 });
+  }
+
+  console.warn("[WHATSAPP_WEBHOOK] Invalid webhook token:", token);
   return NextResponse.json({ error: "Invalid token" }, { status: 403 });
 }

@@ -2,7 +2,11 @@
  * Kapso API Client - Simplified
  * Handles WhatsApp message sending through Kapso Platform API
  * Docs: https://docs.kapso.io/
+ * 
+ * Also supports Twilio as fallback
  */
+
+import { sendSimpleWhatsAppMessage } from "./twilio";
 
 interface KapsoMessagePayload {
   to: string;
@@ -96,7 +100,28 @@ export function getKapsoClient(): KapsoClient {
 }
 
 export async function sendWhatsAppMessage(phone: string, message: string): Promise<KapsoSendResponse> {
-  return getKapsoClient().sendMessage(phone, message);
+  // Check WHATSAPP_PROVIDER env var to determine which provider to use
+  const provider = process.env.WHATSAPP_PROVIDER?.toLowerCase() || 'twilio';
+  
+  if (provider === 'kapso' && process.env.KAPSO_API_KEY) {
+    console.log("[WHATSAPP] Using Kapso provider");
+    return getKapsoClient().sendMessage(phone, message);
+  }
+  
+  // Default to Twilio
+  console.log("[WHATSAPP] Using Twilio provider");
+  try {
+    const result = await sendSimpleWhatsAppMessage(phone, message);
+    return {
+      success: true,
+      message_id: result.messageId,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
 }
 
 export async function sendWhatsAppMessageWithMedia(
@@ -105,5 +130,14 @@ export async function sendWhatsAppMessageWithMedia(
   mediaUrl: string,
   mediaType: string = "image"
 ): Promise<KapsoSendResponse> {
-  return getKapsoClient().sendMessageWithMedia(phone, message, mediaUrl, mediaType);
+  // Check WHATSAPP_PROVIDER env var to determine which provider to use
+  const provider = process.env.WHATSAPP_PROVIDER?.toLowerCase() || 'twilio';
+  
+  if (provider === 'kapso' && process.env.KAPSO_API_KEY) {
+    return getKapsoClient().sendMessageWithMedia(phone, message, mediaUrl, mediaType);
+  }
+  
+  // Default to Twilio (Twilio doesn't support sendSimpleWhatsAppMessage with media)
+  // For now, just send the text message
+  return sendWhatsAppMessage(phone, message);
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/database";
+import { prisma } from "@/lib/database";
 
 function maskSecret(value?: string | null) {
   if (!value) return "";
@@ -20,6 +20,7 @@ export async function GET(request: Request) {
     account_sid_masked: maskSecret(settings.accountSid),
     auth_token_masked: maskSecret(settings.authToken),
     whatsapp_number: settings.whatsappNumber || "",
+    is_enabled: settings.isEnabled,
   });
 }
 

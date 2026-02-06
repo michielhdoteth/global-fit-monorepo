@@ -1,32 +1,48 @@
 import twilio from 'twilio';
+import { prisma } from '@/lib/database';
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER;
+// Get Twilio client - reads from database settings
+async function getTwilioClient() {
+  const settings = await prisma.twilioSettings.findFirst({
+    where: { isEnabled: true }
+  });
 
-// Only create client if credentials are properly configured
-const isConfigured = accountSid && authToken
-  && typeof accountSid === 'string'
-  && accountSid.startsWith('AC');
+  if (!settings || !settings.accountSid || !settings.authToken) {
+    return null;
+  }
 
-if (!isConfigured) {
-  console.warn('Twilio credentials not configured');
+  // Check if accountSid is valid format
+  if (!settings.accountSid.startsWith('AC')) {
+    console.warn('Twilio Account SID must start with AC');
+    return null;
+  }
+
+  return {
+    client: twilio(settings.accountSid, settings.authToken),
+    whatsappNumber: settings.whatsappNumber
+  };
 }
-
-const client = isConfigured ? twilio(accountSid as string, authToken as string) : null;
 
 export async function sendWhatsAppMessage(
   to: string,
   contentSid: string,
   contentVariables?: Record<string, string>
 ) {
-  if (!client) {
-    throw new Error('Twilio client not initialized - check environment variables');
+  const twilioConfig = await getTwilioClient();
+
+  if (!twilioConfig) {
+    throw new Error('Twilio not configured or enabled - check settings page');
+  }
+
+  const { client, whatsappNumber } = twilioConfig;
+
+  if (!whatsappNumber) {
+    throw new Error('Twilio WhatsApp number not configured');
   }
 
   // Ensure the number has whatsapp: prefix
   const toNumber = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
-  const fromNumber = whatsappNumber!.startsWith('whatsapp:')
+  const fromNumber = whatsappNumber.startsWith('whatsapp:')
     ? whatsappNumber
     : `whatsapp:${whatsappNumber}`;
 
@@ -53,12 +69,20 @@ export async function sendSimpleWhatsAppMessage(
   to: string,
   body: string
 ) {
-  if (!client) {
-    throw new Error('Twilio client not initialized - check environment variables');
+  const twilioConfig = await getTwilioClient();
+
+  if (!twilioConfig) {
+    throw new Error('Twilio not configured or enabled - check settings page');
+  }
+
+  const { client, whatsappNumber } = twilioConfig;
+
+  if (!whatsappNumber) {
+    throw new Error('Twilio WhatsApp number not configured');
   }
 
   const toNumber = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
-  const fromNumber = whatsappNumber!.startsWith('whatsapp:')
+  const fromNumber = whatsappNumber.startsWith('whatsapp:')
     ? whatsappNumber
     : `whatsapp:${whatsappNumber}`;
 

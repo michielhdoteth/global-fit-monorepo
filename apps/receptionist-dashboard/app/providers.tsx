@@ -135,6 +135,65 @@ function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) 
 function TopBar({ isDarkMode, toggleTheme, toggleSidebar }: { isDarkMode: boolean; toggleTheme: () => void; toggleSidebar: () => void }) {
   const { user, logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch(API_ENDPOINTS.NOTIFICATIONS + '?limit=10');
+        if (res.ok) {
+          const data = await res.json();
+          setNotifications(data.notifications || []);
+          setUnreadCount(data.unreadCount || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
+    };
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const markAsRead = async (ids: number[]) => {
+    try {
+      await fetch(API_ENDPOINTS.NOTIFICATIONS, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, markAsRead: true }),
+      });
+      setNotifications(prev => prev.map(n => ids.includes(n.id) ? { ...n, isRead: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - ids.length));
+    } catch (error) {
+      console.error('Error marking as read:', error);
+    }
+  };
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - date.getTime()) / 1000 / 60);
+    if (diff < 1) return 'Ahora';
+    if (diff < 60) return `Hace ${diff} min`;
+    if (diff < 1440) return `Hace ${Math.floor(diff / 60)} h`;
+    return `Hace ${Math.floor(diff / 1440)} d`;
+  };
+
+  const getNotificationColor = (type: string) => {
+    const colors: Record<string, { bg: string; border: string; text: string; subtext: string }> = {
+      NEW_CLIENT: { bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-800', text: 'text-blue-900 dark:text-blue-400', subtext: 'text-blue-700 dark:text-blue-300' },
+      APPOINTMENT_SCHEDULED: { bg: 'bg-green-50 dark:bg-green-900/20', border: 'border-green-200 dark:border-green-800', text: 'text-green-900 dark:text-green-400', subtext: 'text-green-700 dark:text-green-300' },
+      APPOINTMENT_CANCELLED: { bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800', text: 'text-red-900 dark:text-red-400', subtext: 'text-red-700 dark:text-red-300' },
+      PAYMENT_DUE: { bg: 'bg-yellow-50 dark:bg-yellow-900/20', border: 'border-yellow-200 dark:border-yellow-800', text: 'text-yellow-900 dark:text-yellow-400', subtext: 'text-yellow-700 dark:text-yellow-300' },
+      CAMPAIGN_COMPLETED: { bg: 'bg-green-50 dark:bg-green-900/20', border: 'border-green-200 dark:border-green-800', text: 'text-green-900 dark:text-green-400', subtext: 'text-green-700 dark:text-green-300' },
+      REMINDER_PENDING: { bg: 'bg-yellow-50 dark:bg-yellow-900/20', border: 'border-yellow-200 dark:border-yellow-800', text: 'text-yellow-900 dark:text-yellow-400', subtext: 'text-yellow-700 dark:text-yellow-300' },
+      MESSAGE_RECEIVED: { bg: 'bg-purple-50 dark:bg-purple-900/20', border: 'border-purple-200 dark:border-purple-800', text: 'text-purple-900 dark:text-purple-400', subtext: 'text-purple-700 dark:text-purple-300' },
+      GENERAL: { bg: 'bg-gray-50 dark:bg-gray-900/20', border: 'border-gray-200 dark:border-gray-800', text: 'text-gray-900 dark:text-gray-400', subtext: 'text-gray-700 dark:text-gray-300' },
+    };
+    return colors[type] || colors.GENERAL;
+  };
 
   return (
     <header className="h-16 px-6 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-dark-950/80 backdrop-blur-sm transition-colors duration-200 sticky top-0 z-20">
@@ -148,18 +207,31 @@ function TopBar({ isDarkMode, toggleTheme, toggleSidebar }: { isDarkMode: boolea
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={toggleTheme}>{isDarkMode ? <Sun size={18} /> : <Moon size={18} />}</Button>
         <div className="relative">
-          <Button variant="ghost" size="icon" className="relative" onClick={() => setShowNotifications(!showNotifications)}>
-            <Bell size={18} /><span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-dark-950" />
+          <Button variant="ghost" size="icon" className="relative" onClick={() => { setShowNotifications(!showNotifications); if (showNotifications) markAsRead(notifications.filter(n => !n.isRead).map(n => n.id)); }}>
+            <Bell size={18} />
+            {unreadCount > 0 && <span className="absolute top-1 right-1 h-5 w-5 bg-red-500 rounded-full ring-2 ring-white dark:ring-dark-950 text-[10px] text-white flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>}
           </Button>
           {showNotifications && (
             <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-dark-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 z-50">
               <div className="p-4 border-b border-gray-200 dark:border-gray-700"><h3 className="font-semibold text-gray-900 dark:text-white">Notificaciones</h3></div>
-              <div className="max-h-96 overflow-y-auto"><div className="p-4 space-y-3">
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800"><p className="font-medium text-sm text-blue-900 dark:text-blue-400">Nuevo cliente registrado</p><p className="text-xs text-blue-700 dark:text-blue-300 mt-1">Hace 5 minutos</p></div>
-                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800"><p className="font-medium text-sm text-green-900 dark:text-green-400">Campaña completada</p><p className="text-xs text-green-700 dark:text-green-300 mt-1">Hace 2 horas</p></div>
-                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800"><p className="font-medium text-sm text-yellow-900 dark:text-yellow-400">Recordatorio pendiente</p><p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">Hace 1 hora</p></div>
-              </div></div>
-              <div className="p-3 border-t border-gray-200 dark:border-gray-700"><button className="w-full text-center text-sm text-primary-600 dark:text-primary-400 hover:underline">Ver todas las notificaciones</button></div>
+              <div className="max-h-96 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500 dark:text-gray-400">No hay notificaciones</div>
+                ) : (
+                  <div className="p-4 space-y-3">
+                    {notifications.map((notif) => {
+                      const colors = getNotificationColor(notif.type);
+                      return (
+                        <div key={notif.id} onClick={() => notif.actionUrl && (window.location.href = notif.actionUrl)} className={`p-3 ${colors.bg} rounded-lg border ${colors.border} ${notif.actionUrl ? 'cursor-pointer hover:opacity-80' : ''}`}>
+                          <p className={`font-medium text-sm ${colors.text}`}>{notif.title}</p>
+                          <p className={`text-xs ${colors.subtext} mt-1`}>{formatTime(notif.createdAt)}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div className="p-3 border-t border-gray-200 dark:border-gray-700"><button onClick={() => markAsRead(notifications.filter(n => !n.isRead).map(n => n.id))} className="w-full text-center text-sm text-primary-600 dark:text-primary-400 hover:underline">Marcar todas como leidas</button></div>
             </div>
           )}
         </div>

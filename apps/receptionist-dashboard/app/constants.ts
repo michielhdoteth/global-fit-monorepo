@@ -8,6 +8,7 @@ export const API_ENDPOINTS = {
   CLIENTS: '/api/frontend/clients',
   CAMPAIGNS: '/api/frontend/campaigns',
   REMINDERS: '/api/frontend/reminders',
+  NOTIFICATIONS: '/api/notifications',
   SCHEDULE: {
     APPOINTMENTS: '/api/frontend/appointments',
     TIME_SLOTS: '/api/frontend/time-slots',

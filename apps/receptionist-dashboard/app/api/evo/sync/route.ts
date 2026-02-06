@@ -1,109 +1,158 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database';
+import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/token-auth";
+import { getEvoClientFromDb } from "@/lib/evo-api";
 
-export async function POST(request: NextRequest) {
-  try {
-    const evoSettings = await prisma.evoSettings.findFirst();
+export async function POST(request: Request) {
+  const currentUser = await requireUser(request.headers.get("authorization"));
+  if (!currentUser) {
+    return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
+  }
 
-    if (!evoSettings?.dns || !evoSettings.apiKey || !evoSettings.isEnabled) {
-      return NextResponse.json(
-        { error: 'Evo no está configurado o está deshabilitado' },
-        { status: 400 }
-      );
-    }
-
-    const response = await fetch(`${evoSettings.dns}/api/members`, {
-      headers: {
-        'Authorization': `Bearer ${evoSettings.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Evo API error: ${response.statusText}`);
-    }
-
-    const evoMembers = await response.json();
-
-    let synced = 0;
-    let created = 0;
-
-    for (const member of evoMembers) {
-      const existingSync = await prisma.evoSync.findFirst({
-        where: { evoMemberId: String(member.id) },
-      });
-
-      if (existingSync) {
-        await prisma.evoSync.update({
-          where: { id: existingSync.id },
-          data: { lastSyncAt: new Date(), syncStatus: 'success' },
-        });
-        synced++;
-      } else {
-        const client = await prisma.client.findFirst({
-          where: {
-            OR: [
-              { email: member.email },
-              { phone: member.phone },
-            ],
-          },
-        });
-
-        if (client) {
-          await prisma.evoSync.create({
-            data: {
-              clientId: client.id,
-              evoMemberId: String(member.id),
-              lastSyncAt: new Date(),
-              syncStatus: 'success',
-            },
-          });
-          created++;
-        }
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: `Sincronización completada: ${created} nuevos, ${synced} actualizados`,
-      synced: created + synced,
-    });
-  } catch (error) {
-    console.error('Evo sync error:', error);
+  const evoClient = await getEvoClientFromDb();
+  if (!evoClient) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error al sincronizar con Evo' },
-      { status: 500 }
+      { detail: "EVO integration not configured or disabled" },
+      { status: 400 }
     );
   }
+
+  const body = await request.json();
+  const { syncType = "all", options = {} } = body;
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get("host") || "http://localhost:3000";
+  const authToken = request.headers.get("authorization");
+
+  const results: any = {
+    members: null,
+    visits: null,
+    payments: null,
+  };
+
+  const syncPromises: Promise<void>[] = [];
+
+  if (syncType === "all" || syncType === "members") {
+    syncPromises.push(
+      (async () => {
+        try {
+          const response = await fetch(`${baseUrl}/api/evo/sync/members`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: authToken || "",
+            },
+            body: JSON.stringify(options.members || { syncAll: true, limit: 100 }),
+          });
+          results.members = await response.json();
+        } catch (error) {
+          results.members = { error: error instanceof Error ? error.message : "Failed to sync members" };
+        }
+      })()
+    );
+  }
+
+  if (syncType === "all" || syncType === "visits") {
+    syncPromises.push(
+      (async () => {
+        try {
+          const response = await fetch(`${baseUrl}/api/evo/sync/visits`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: authToken || "",
+            },
+            body: JSON.stringify(options.visits || { limit: 500 }),
+          });
+          results.visits = await response.json();
+        } catch (error) {
+          results.visits = { error: error instanceof Error ? error.message : "Failed to sync visits" };
+        }
+      })()
+    );
+  }
+
+  if (syncType === "all" || syncType === "payments") {
+    syncPromises.push(
+      (async () => {
+        try {
+          const response = await fetch(`${baseUrl}/api/evo/sync/payments`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: authToken || "",
+            },
+            body: JSON.stringify(options.payments || { limit: 500 }),
+          });
+          results.payments = await response.json();
+        } catch (error) {
+          results.payments = { error: error instanceof Error ? error.message : "Failed to sync payments" };
+        }
+      })()
+    );
+  }
+
+  await Promise.all(syncPromises);
+
+  const hasErrors = Object.values(results).some(
+    (r: any) => r && (r.error || !r.success)
+  );
+
+  return NextResponse.json({
+    success: !hasErrors,
+    message: hasErrors
+      ? "Sync completed with some errors"
+      : "All sync operations completed successfully",
+    results,
+    syncedAt: new Date().toISOString(),
+  });
 }
 
-export async function GET() {
-  try {
-    const evoSettings = await prisma.evoSettings.findFirst();
-
-    if (!evoSettings?.dns || !evoSettings.apiKey || !evoSettings.isEnabled) {
-      return NextResponse.json({
-        configured: false,
-        enabled: false,
-        syncedClients: 0,
-      });
-    }
-
-    const syncedClients = await prisma.evoSync.count({
-      where: { syncStatus: 'success' },
-    });
-
-    return NextResponse.json({
-      configured: true,
-      enabled: evoSettings.isEnabled,
-      dns: evoSettings.dns,
-      syncedClients,
-    });
-  } catch (error) {
-    console.error('Evo status error:', error);
-    return NextResponse.json(
-      { error: 'Error al obtener estado de Evo' },
-      { status: 500 }
-    );
+export async function GET(request: Request) {
+  const currentUser = await requireUser(request.headers.get("authorization"));
+  if (!currentUser) {
+    return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
   }
+
+  const prisma = (await import("@/lib/db")).default;
+
+  const evoSettings = await prisma.evoSettings.findFirst();
+  if (!evoSettings) {
+    return NextResponse.json({ configured: false, enabled: false });
+  }
+
+  const totalClients = await prisma.client.count();
+  const syncedClients = await prisma.evoSync.count({
+    where: { syncStatus: "success" },
+  });
+  const totalCheckIns = await prisma.checkIn.count();
+  const clientsWithPayments = await prisma.client.count({
+    where: { notes: { contains: "[EVO Payments]" } },
+  });
+
+  const lastMemberSync = await prisma.evoSync.findFirst({
+    where: { syncStatus: "success" },
+    orderBy: { lastSyncAt: "desc" },
+  });
+
+  const lastCheckIn = await prisma.checkIn.findFirst({
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json({
+    configured: Boolean(evoSettings.apiKey),
+    enabled: evoSettings.isEnabled,
+    stats: {
+      members: {
+        total: totalClients,
+        synced: syncedClients,
+        lastSync: lastMemberSync?.lastSyncAt,
+      },
+      visits: {
+        total: totalCheckIns,
+        lastEntry: lastCheckIn?.timestamp,
+      },
+      payments: {
+        clientsWithData: clientsWithPayments,
+      },
+    },
+  });
 }

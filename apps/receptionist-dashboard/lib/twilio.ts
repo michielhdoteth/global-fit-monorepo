@@ -4,11 +4,16 @@ const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const whatsappNumber = process.env.TWILIO_WHATSAPP_NUMBER;
 
-if (!accountSid || !authToken || !whatsappNumber) {
+// Only create client if credentials are properly configured
+const isConfigured = accountSid && authToken
+  && typeof accountSid === 'string'
+  && accountSid.startsWith('AC');
+
+if (!isConfigured) {
   console.warn('Twilio credentials not configured');
 }
 
-const client = accountSid && authToken ? twilio(accountSid, authToken) : null;
+const client = isConfigured ? twilio(accountSid as string, authToken as string) : null;
 
 export async function sendWhatsAppMessage(
   to: string,
@@ -21,8 +26,8 @@ export async function sendWhatsAppMessage(
 
   // Ensure the number has whatsapp: prefix
   const toNumber = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
-  const fromNumber = whatsappNumber!.startsWith('whatsapp:') 
-    ? whatsappNumber 
+  const fromNumber = whatsappNumber!.startsWith('whatsapp:')
+    ? whatsappNumber
     : `whatsapp:${whatsappNumber}`;
 
   try {
@@ -53,8 +58,8 @@ export async function sendSimpleWhatsAppMessage(
   }
 
   const toNumber = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
-  const fromNumber = whatsappNumber!.startsWith('whatsapp:') 
-    ? whatsappNumber 
+  const fromNumber = whatsappNumber!.startsWith('whatsapp:')
+    ? whatsappNumber
     : `whatsapp:${whatsappNumber}`;
 
   try {

@@ -34,6 +34,15 @@ interface IntegrationSettings {
     max_tokens?: number;
     is_enabled: boolean;
   };
+  twilio?: {
+    configured?: boolean;
+    account_sid: string;
+    account_sid_masked?: string;
+    auth_token: string;
+    auth_token_masked?: string;
+    whatsapp_number: string;
+    is_enabled: boolean;
+  };
   wechaty?: {
     is_enabled: boolean;
   };
@@ -102,10 +111,11 @@ export default function SettingsPage() {
       const token = localStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
-      const [evoRes, kapsoRes, llmRes] = await Promise.all([
+      const [evoRes, kapsoRes, llmRes, twilioRes] = await Promise.all([
         fetch('/api/evo/status', { headers }).then(r => r.json()).catch(() => null),
         fetch('/api/settings/kapso', { headers }).then(r => r.json()).catch(() => null),
         fetch('/api/settings/llm', { headers }).then(r => r.json()).catch(() => null),
+        fetch('/api/settings/twilio', { headers }).then(r => r.json()).catch(() => null),
       ]);
 
       setIntegrations({
@@ -139,6 +149,16 @@ export default function SettingsPage() {
           is_enabled: llmRes.enabled,
           configured: llmRes.configured
         } : { provider: 'deepseek', api_key: '', model: 'gpt-5.2-nano', base_url: 'https://api.deepseek.com', temperature: 0.7, max_tokens: 1000, is_enabled: false, configured: false },
+
+        twilio: twilioRes?.configured ? {
+          account_sid: '',
+          account_sid_masked: twilioRes.account_sid_masked || '',
+          auth_token: '',
+          auth_token_masked: twilioRes.auth_token_masked || '',
+          whatsapp_number: twilioRes.whatsapp_number || '',
+          is_enabled: twilioRes.enabled,
+          configured: twilioRes.configured
+        } : { account_sid: '', auth_token: '', whatsapp_number: '', is_enabled: false, configured: false },
 
         wechaty: { is_enabled: false }
       });
@@ -199,6 +219,16 @@ export default function SettingsPage() {
               temperature: integrations.llm.temperature,
               max_tokens: integrations.llm.max_tokens,
               is_enabled: integrations.llm.is_enabled,
+            }
+          : {};
+      } else if (integration === 'twilio') {
+        endpoint = '/api/settings/twilio';
+        payload = integrations.twilio
+          ? {
+              account_sid: integrations.twilio.account_sid,
+              auth_token: integrations.twilio.auth_token,
+              whatsapp_number: integrations.twilio.whatsapp_number,
+              is_enabled: integrations.twilio.is_enabled,
             }
           : {};
       }
@@ -272,6 +302,16 @@ export default function SettingsPage() {
               temperature: integrations.llm.temperature,
               max_tokens: integrations.llm.max_tokens,
               is_enabled: integrations.llm.is_enabled,
+            }
+          : {};
+      } else if (integration === 'twilio') {
+        endpoint = '/api/settings/twilio';
+        payload = integrations.twilio
+          ? {
+              account_sid: integrations.twilio.account_sid,
+              auth_token: integrations.twilio.auth_token,
+              whatsapp_number: integrations.twilio.whatsapp_number,
+              is_enabled: integrations.twilio.is_enabled,
             }
           : {};
       }
@@ -1254,6 +1294,122 @@ export default function SettingsPage() {
                             </button>
                             <button
                               onClick={() => saveIntegration('llm')}
+                              disabled={isLoading}
+                              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-lg transition-all disabled:opacity-50"
+                            >
+                              {isLoading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                              Guardar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Twilio Integration */}
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => setExpandedIntegrations(prev => ({ ...prev, twilio: !prev.twilio }))}
+                        className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-dark-900 hover:bg-gray-100 dark:hover:bg-dark-800 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white text-left">Twilio WhatsApp</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Envio de mensajes via Twilio API</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {integrations.twilio?.account_sid && (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                              Configurado
+                            </span>
+                          )}
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            integrations.twilio?.is_enabled
+                              ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                              : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                          }`}>
+                            {integrations.twilio?.is_enabled ? 'Activo' : 'Inactivo'}
+                          </span>
+                          {expandedIntegrations.twilio ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        </div>
+                      </button>
+
+                      {expandedIntegrations.twilio && (
+                        <div className="p-4 space-y-4 border-t border-gray-200 dark:border-gray-700">
+                          {integrations.twilio?.configured && (
+                            <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-sm text-green-700 dark:text-green-300">
+                              <p className="font-medium mb-1">Credenciales Configuradas</p>
+                              {integrations.twilio.account_sid_masked && (
+                                <p className="text-xs">Account SID: {integrations.twilio.account_sid_masked}</p>
+                              )}
+                              <p className="text-xs">Para cambiar, ingresa los nuevos valores abajo</p>
+                            </div>
+                          )}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              Account SID {integrations.twilio?.configured && '(Dejar vacio para mantener)'}
+                            </label>
+                            <div className="relative">
+                              <input
+                                type={showPasswords['twilio_account_sid'] ? 'text' : 'password'}
+                                placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                value={integrations.twilio?.account_sid || ''}
+                                onChange={(e) => handleIntegrationChange('twilio', 'account_sid', e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all pr-10"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => togglePassword('twilio_account_sid')}
+                                className="absolute right-3 top-3 text-gray-500 hover:text-gray-700"
+                              >
+                                {showPasswords['twilio_account_sid'] ? <EyeOff size={20} /> : <Eye size={20} />}
+                              </button>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              Auth Token {integrations.twilio?.configured && '(Dejar vacio para mantener)'}
+                            </label>
+                            <div className="relative">
+                              <input
+                                type={showPasswords['twilio_auth_token'] ? 'text' : 'password'}
+                                placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                value={integrations.twilio?.auth_token || ''}
+                                onChange={(e) => handleIntegrationChange('twilio', 'auth_token', e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all pr-10"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => togglePassword('twilio_auth_token')}
+                                className="absolute right-3 top-3 text-gray-500 hover:text-gray-700"
+                              >
+                                {showPasswords['twilio_auth_token'] ? <EyeOff size={20} /> : <Eye size={20} />}
+                              </button>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              Numero de WhatsApp
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="whatsapp:+14155238886"
+                              value={integrations.twilio?.whatsapp_number || ''}
+                              onChange={(e) => handleIntegrationChange('twilio', 'whatsapp_number', e.target.value)}
+                              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all"
+                            />
+                          </div>
+                          <div className="flex gap-2 pt-4">
+                            <button
+                              onClick={() => testIntegration('twilio')}
+                              disabled={testingIntegration === 'twilio' || isLoading}
+                              className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition-all disabled:opacity-50"
+                            >
+                              {testingIntegration === 'twilio' ? <Loader2 className="inline animate-spin mr-2" size={16} /> : ''}
+                              Probar Conexion
+                            </button>
+                            <button
+                              onClick={() => saveIntegration('twilio')}
                               disabled={isLoading}
                               className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white font-semibold rounded-lg transition-all disabled:opacity-50"
                             >

@@ -22,9 +22,9 @@ enum UserRole {
 }
 
 enum ClientStatus {
-  ACTIVE
+  CLIENT
   INACTIVE
-  PENDING
+  PROSPECTO
 }
 
 enum LeadStatus {
@@ -115,7 +115,7 @@ model Client {
   phone             String?
   plan              String?
   planDetails       String?
-  status            ClientStatus @default(PENDING)
+  status            ClientStatus @default(PROSPECTO)
   notes             String?
   teamId            Int?
   whatsappNumber    String?
@@ -131,6 +131,7 @@ model Client {
   reminders         Reminder[]
   campaigns         Campaign[]
   checkIns          CheckIn[]
+  evoSyncs          EvoSync[]
 }
 
 model Lead {
@@ -397,6 +398,16 @@ model LlmSettings {
   updatedAt  DateTime  @updatedAt
 }
 
+model TwilioSettings {
+  id             Int      @id @default(autoincrement())
+  accountSid     String?  @unique
+  authToken      String?
+  whatsappNumber String?
+  isEnabled      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
 model ReminderRule {
   id              Int       @id @default(autoincrement())
   name            String
@@ -490,6 +501,10 @@ model EvoSync {
   syncStatus String?  // "pending", "success", "failed"
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
 }
 
 model WebhookLog {

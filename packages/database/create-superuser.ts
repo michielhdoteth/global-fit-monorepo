@@ -1,13 +1,16 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import * as dotenv from 'dotenv';
+
+dotenv.config({ path: '/home/steven/codes/work/global-fit-monorepo/.env' });
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🔐 Creating super user in correct database...');
 
-  const email = 'admin@globalfit.com.mx';
-  const password = 'password';
+  const email = 'admin1@globlft.com.mx';
+  const password = 'SuperAdmin2024!';
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -15,14 +18,14 @@ async function main() {
     where: { email },
     update: { 
       hashedPassword,
-      fullName: 'Super Admin',
+      fullName: 'Super Admin 1',
       role: 'SUPER_ADMIN',
       isActive: true,
     },
     create: {
       email,
       hashedPassword,
-      fullName: 'Super Admin',
+      fullName: 'Super Admin 1',
       role: 'SUPER_ADMIN',
       isActive: true,
     },

@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "packageManager": "npm@10.9.2",
-  
   "description": "Global Fit - Receptionist Dashboard",
   "scripts": {
     "dev": "turbo run dev",
@@ -20,11 +19,12 @@
     "packages/*",
     "tooling/*"
   ],
-"devDependencies": {
-    "turbo": "^2.0.0",
+  "devDependencies": {
     "@turbo/gen": "^2.0.0",
-    "typescript": "^5.9.0",
+    "dotenv": "^17.2.4",
     "eslint": "^9.0.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.9.0",
     "vercel": "^41.0.0"
   }
 }

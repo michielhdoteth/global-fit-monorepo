@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  whatsapp-gateway:
+    build:
+      context: ./whatsapp-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./whatsapp-gateway/sessions:/app/sessions
+      - ./whatsapp-gateway/storage:/app/storage
+    environment:
+      - PORT=3000
+      - NODE_ENV=development
+      - BRAIN_API_URL=http://brain-api:3001
+      - DATABASE_PATH=./storage/whatsapp.db
+      - SESSION_PATH=./sessions
+      - LOG_LEVEL=info
+    depends_on:
+      - brain-api
+    restart: unless-stopped
+
+  brain-api:
+    build:
+      context: ./brain-api
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=development
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - API_KEY=${API_KEY}
+    restart: unless-stopped
+
+networks:
+  default:
+    name: whatsapp-receptionist

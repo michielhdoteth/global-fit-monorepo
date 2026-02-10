@@ -1,0 +1,23 @@
+{
+  "name": "whatsapp-gateway",
+  "version": "1.0.0",
+  "description": "WhatsApp Gateway using Baileys for receptionist integration",
+  "main": "gateway.js",
+  "type": "module",
+  "scripts": {
+    "start": "node gateway.js",
+    "dev": "node --watch gateway.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.6.0",
+    "qrcode": "^1.5.3",
+    "express": "^4.18.2",
+    "dotenv": "^16.3.1",
+    "better-sqlite3": "^9.2.2",
+    "pino": "^8.17.1",
+    "telegraf": "^4.16.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

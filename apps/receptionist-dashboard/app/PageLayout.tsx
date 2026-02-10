@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sidebar, TopBar, LoginPage, useAuth } from "./providers";
+import { useRouter, usePathname } from "next/navigation";
+import { Sidebar, TopBar, useAuth } from "./providers";
 import { Spinner } from "@/components/ui/spinner";
 
 interface PageLayoutProps {
@@ -12,6 +13,8 @@ interface PageLayoutProps {
 
 export default function PageLayout({ children, title, description }: PageLayoutProps) {
   const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -38,6 +41,13 @@ export default function PageLayout({ children, title, description }: PageLayoutP
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      const callbackUrl = pathname || "/";
+      router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+    }
+  }, [isAuthenticated, isLoading, pathname, router]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-dark-950 flex items-center justify-center">
@@ -47,7 +57,7 @@ export default function PageLayout({ children, title, description }: PageLayoutP
   }
 
   if (!isAuthenticated) {
-    return <LoginPage />;
+    return null;
   }
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);

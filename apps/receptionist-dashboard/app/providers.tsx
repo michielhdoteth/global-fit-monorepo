@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard, Briefcase, CalendarDays, Bot, Megaphone, Bell,
@@ -258,19 +258,21 @@ function TopBar({ isDarkMode, toggleTheme, toggleSidebar }: { isDarkMode: boolea
 }
 
 function LoginPage() {
-  const [email, setEmail] = useState(DEFAULT_ADMIN_EMAIL);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
 
   useEffect(() => { if (localStorage.getItem("token")) router.push("/"); }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(""); setIsLoading(true);
-    try { await login(email, password); router.push("/"); }
+    try { await login(email, password); router.push(callbackUrl); }
     catch (err) { setError(err instanceof Error ? err.message : "Login failed"); }
     finally { setIsLoading(false); }
   };

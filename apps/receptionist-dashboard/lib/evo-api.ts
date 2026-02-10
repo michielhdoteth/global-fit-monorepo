@@ -207,6 +207,16 @@ class EvoClient {
   }
 
   /**
+   * Search members by name
+   * GET /api/v1/members?name={name}
+   */
+  async searchMembers(name: string): Promise<EvoMember[] | null> {
+    if (!name || name.trim().length < 2) return [];
+    const endpoint = `/api/v1/members?name=${encodeURIComponent(name.trim())}`;
+    return this.request<EvoMember[]>(endpoint);
+  }
+
+  /**
    * Get active members from a branch
    * GET /api/v1/members
    */

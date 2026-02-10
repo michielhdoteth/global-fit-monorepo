@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { signAuthToken, verifyPassword } from "@/lib/token-auth";
+import { signAuthToken, verifyPassword, hashPassword } from "@/lib/token-auth";
 
 console.log('[LOGIN] Starting login request');
 
@@ -21,43 +21,36 @@ async function readFormBody(request: Request): Promise<Record<string, string>> {
   }
 }
 
+// Hardcoded admin credentials for development
+const ADMIN_EMAIL = "admin@globalfit.com";
+const ADMIN_PASSWORD = "admin123";
+
 export async function POST(request: Request) {
   console.log('[LOGIN] Processing login request');
   const body = await readFormBody(request);
   const email = (body.username || body.email || "").toLowerCase().trim();
   const password = body.password || "";
-  const isDevBypass = body.dev_bypass === "true";
 
   console.log('[LOGIN] Email:', email);
 
-  // Dev bypass - works in any environment
-  if (body.dev_bypass === "true") {
-    console.log('[LOGIN] Dev bypass enabled, finding admin user...');
-    const user = await prisma.user.findFirst({
-      where: { role: "SUPER_ADMIN" },
-    });
-    
-    if (!user || !user.isActive) {
-      console.log('[LOGIN] No admin user found for dev bypass');
-      return NextResponse.json({ detail: "No admin user found" }, { status: 404 });
-    }
-
-    console.log('[LOGIN] Dev bypass login successful for:', user.email);
+  // Hardcoded admin login - no database needed
+  if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+    console.log('[LOGIN] Admin login successful');
     const token = signAuthToken({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
+      sub: 1,
+      email: ADMIN_EMAIL,
+      role: "SUPER_ADMIN",
     });
 
     const response = NextResponse.json({
       access_token: token,
       token_type: "bearer",
       user: {
-        id: user.id,
-        email: user.email,
-        full_name: user.fullName,
-        role: user.role.toLowerCase(),
-        team_id: user.teamId,
+        id: 1,
+        email: ADMIN_EMAIL,
+        full_name: "Administrador",
+        role: "super_admin",
+        team_id: null,
       },
     });
 

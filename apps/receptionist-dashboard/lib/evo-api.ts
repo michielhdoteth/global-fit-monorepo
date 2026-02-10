@@ -16,20 +16,40 @@ export interface EvoAuthConfig {
   dns: string;
   apiKey: string;
   branchId?: string;
+  username?: string;
+}
+
+export interface EvoContact {
+  idPhone: number;
+  idMember: number;
+  contactType: string;
+  ddi?: string;
+  description: string;
+}
+
+export interface EvoMembershipItem {
+  idMemberMembership: number;
+  idMembership: number;
+  name: string;
+  membershipStatus: string;
+  startDate: string;
+  endDate: string;
 }
 
 export interface EvoMember {
   idMember: number;
-  name: string;
-  email?: string;
-  phone?: string;
-  cpf?: string;
+  firstName: string;
+  lastName: string;
   status?: string;
+  membershipStatus?: string;
+  photoUrl?: string;
+  contacts?: EvoContact[];
+  memberships?: EvoMembershipItem[];
   idBranch?: number;
   birthDate?: string;
   gender?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  registerDate?: string;
+  updateDate?: string;
 }
 
 export interface EvoMembership {
@@ -82,15 +102,14 @@ class EvoClient {
   constructor(config: EvoAuthConfig) {
     this.config = config;
     this.baseUrl = config.dns.replace(/\/$/, "");
-    this.authHeader = this.createAuthHeader(config.dns, config.apiKey);
+    this.authHeader = this.createAuthHeader(config.dns, config.apiKey, config.username);
   }
 
-  private createAuthHeader(dns: string, apiKey: string): string {
-    // EVO uses Basic Authentication with DNS as username and API key as password
-    // We need to extract just the hostname from the DNS for the username
-    const url = new URL(dns);
-    const username = url.hostname;
-    const credentials = btoa(`${username}:${apiKey}`);
+  private createAuthHeader(dns: string, apiKey: string, username?: string): string {
+    // EVO uses Basic Authentication with username and API key as password
+    // Use provided username or extract from DNS hostname as fallback
+    const authUsername = username || new URL(dns).hostname;
+    const credentials = btoa(`${authUsername}:${apiKey}`);
     return `Basic ${credentials}`;
   }
 
@@ -116,7 +135,22 @@ class EvoClient {
         return null;
       }
 
-      return await response.json();
+      // Check if response is HTML instead of JSON
+      const contentType = response.headers.get("content-type") || "";
+      const responseText = await response.text();
+      
+      if (responseText.trim().startsWith("<") || !contentType.includes("application/json")) {
+        console.error(`[EVO_CLIENT] Received HTML instead of JSON. Check your EVO_DNS URL.`);
+        console.error(`[EVO_CLIENT] Response preview: ${responseText.substring(0, 200)}`);
+        return null;
+      }
+
+      try {
+        return JSON.parse(responseText) as T;
+      } catch (parseError) {
+        console.error(`[EVO_CLIENT] Failed to parse JSON response:`, parseError);
+        return null;
+      }
     } catch (error) {
       console.error(`[EVO_CLIENT] Request error:`, error);
       return null;
@@ -174,12 +208,12 @@ class EvoClient {
 
   /**
    * Get active members from a branch
-   * GET /api/v1/members/active-members
+   * GET /api/v1/members
    */
   async getActiveMembers(idBranch?: number): Promise<EvoMember[] | null> {
     const endpoint = idBranch
-      ? `/api/v1/members/active-members?idBranch=${idBranch}`
-      : "/api/v1/members/active-members";
+      ? `/api/v1/members?idBranch=${idBranch}`
+      : "/api/v1/members";
     return this.request<EvoMember[]>(endpoint);
   }
 

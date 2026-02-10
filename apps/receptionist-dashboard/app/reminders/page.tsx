@@ -13,13 +13,13 @@ function getAuthHeaders(): Record<string, string> {
 interface Reminder {
   id: number;
   client: string;
-  phone: string;
   type: string;
   message: string;
   scheduled_time: string;
   status: string;
   sent_at: string | null;
   created_at: string;
+  clientId: number | null;
 }
 
 interface ReminderStats {
@@ -33,6 +33,9 @@ interface Client {
   id: number;
   name: string;
   phone: string;
+  email?: string;
+  photoUrl?: string;
+  initials?: string;
 }
 
 const statusIcons: Record<string, typeof AlertCircle> = {
@@ -59,7 +62,23 @@ const typeLabels: Record<string, string> = {
   payment: 'Pago',
   follow_up: 'Seguimiento',
   general: 'General',
+  APPOINTMENT: 'Cita',
+  PAYMENT: 'Pago',
+  FOLLOW_UP: 'Seguimiento',
+  GENERAL: 'General',
 };
+
+const statusLabels: Record<string, string> = {
+  Pending: 'Pendiente',
+  Sent: 'Enviado',
+  Failed: 'Fallido',
+  PENDING: 'Pendiente',
+  SENT: 'EnVIADO',
+  FAILED: 'Fallido',
+};
+
+const getStatusLabel = (status: string) => statusLabels[status] || statusLabels[status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()] || status;
+const getTypeLabel = (type: string) => typeLabels[type] || typeLabels[type.toLowerCase()] || type;
 
 function formatDate(dateString: string): string {
   if (!dateString) return '';
@@ -71,10 +90,9 @@ function formatDate(dateString: string): string {
 }
 
 interface EditReminderData {
-  name?: string;
-  celphone?: string;
+  type?: string;
   message?: string;
-  sendDate?: string;
+  sendDate?: string | null;
   endDate?: string | null;
   clientId?: number | null;
 }
@@ -183,8 +201,7 @@ export default function RemindersPage() {
   };
 
   const filteredReminders = reminders.filter(reminder =>
-    reminder.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    reminder.phone.includes(searchTerm)
+    reminder.client.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -193,10 +210,10 @@ export default function RemindersPage() {
         <div className="flex flex-col sm:flex-row gap-4 justify-between">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Buscar recordatorios..."
-              value={searchTerm}
+              <input
+                type="text"
+                placeholder="Buscar por nombre de cliente..."
+                value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none transition-all"
             />
@@ -284,9 +301,9 @@ export default function RemindersPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-dark-800/50 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="font-semibold text-gray-900 dark:text-white">Todos los Recordatorios</h3>
+        <div className="bg-white dark:bg-dark-800/50 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+            <h3 className="font-semibold text-gray-900 dark:text-white whitespace-nowrap">Todos los Recordatorios</h3>
           </div>
           {isLoading ? (
             <div className="p-12 text-center">
@@ -313,41 +330,28 @@ export default function RemindersPage() {
                 const StatusIcon = statusIcons[reminder.status] || Clock;
                 return (
                   <div key={reminder.id} className="p-6 hover:bg-gray-50 dark:hover:bg-dark-800/50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-4">
-                        <div className="p-3 bg-primary-100 dark:bg-primary-900/30 rounded-xl">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start space-x-4 min-w-0 flex-1">
+                        <div className="p-3 bg-primary-100 dark:bg-primary-900/30 rounded-xl flex-shrink-0">
                           <Bell className="text-primary-600 dark:text-primary-400" size={20} />
                         </div>
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <p className="font-medium text-gray-900 dark:text-white">{reminder.client}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                            <p className="font-medium text-gray-900 dark:text-white truncate">{reminder.client}</p>
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center space-x-1 ${statusColors[reminder.status] || statusColors.Pending}`}>
                               <StatusIcon size={12} />
-                              <span>{reminder.status}</span>
+                              <span>{getStatusLabel(reminder.status)}</span>
                             </span>
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColors[reminder.type] || typeColors.general}`}>
-                              {typeLabels[reminder.type] || reminder.type}
+                              {getTypeLabel(reminder.type)}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{reminder.phone}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 bg-gray-50 dark:bg-dark-900 p-2 rounded-lg">
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 bg-gray-50 dark:bg-dark-900 p-3 rounded-lg break-words whitespace-normal">
                             {reminder.message}
                           </p>
-                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                            <div className="flex items-center space-x-1">
-                              <Calendar size={14} />
-                              <span>{formatDate(reminder.scheduled_time)}</span>
-                            </div>
-                            {reminder.sent_at && (
-                              <div className="flex items-center space-x-1">
-                                <Clock size={14} />
-                                <span>Enviado: {formatDate(reminder.sent_at)}</span>
-                              </div>
-                            )}
-                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 flex-shrink-0">
                         {reminder.status === 'Pending' && (
                           <button
                             onClick={() => handleSendReminder(reminder.id)}
@@ -361,7 +365,7 @@ export default function RemindersPage() {
                           <button className="p-2 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-lg transition-colors">
                             <MoreVertical size={20} className="text-gray-500" />
                           </button>
-                          <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-dark-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                          <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-dark-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
                             <button
                               onClick={() => setEditingReminder(reminder)}
                               className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-700 flex items-center space-x-2 first:rounded-t-xl"
@@ -516,33 +520,19 @@ function ReminderTypeModal({
 }
 
 function NewReminderModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [selectedClientName, setSelectedClientName] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
-  const [celphone, setCelphone] = useState('');
-  const [reminderName, setReminderName] = useState('');
+  const [type, setType] = useState('GENERAL');
   const [message, setMessage] = useState('');
   const [sendDate, setSendDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchResults, setSearchResults] = useState<Client[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const fetchClients = async () => {
-      try {
-        const response = await fetch('/api/frontend/clients', { headers: getAuthHeaders() });
-        if (response.ok) {
-          const data = await response.json();
-          setClients(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch clients:', error);
-      }
-    };
-    fetchClients();
-  }, []);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -554,17 +544,45 @@ function NewReminderModal({ onClose, onCreated }: { onClose: () => void; onCreat
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.phone.includes(searchQuery)
-  );
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (searchQuery.trim().length >= 2) {
+      setIsSearching(true);
+      searchTimeoutRef.current = setTimeout(async () => {
+        try {
+          const response = await fetch(`/api/evo/search-members?name=${encodeURIComponent(searchQuery)}`);
+          if (response.ok) {
+            const data = await response.json();
+            setSearchResults(data);
+          }
+        } catch (error) {
+          console.error('Error searching members:', error);
+          setSearchResults([]);
+        } finally {
+          setIsSearching(false);
+        }
+      }, 300);
+    } else {
+      setSearchResults([]);
+      setIsSearching(false);
+    }
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery]);
 
   const handleSelectClient = (client: Client) => {
     setSelectedClientId(client.id);
     setSelectedClientName(client.name);
-    setCelphone(client.phone);
     setSearchQuery(client.name);
     setShowDropdown(false);
+    setSearchResults([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -576,11 +594,10 @@ function NewReminderModal({ onClose, onCreated }: { onClose: () => void; onCreat
         method: 'POST',
         headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: reminderName,
-          celphone: celphone,
+          type: type,
           message: message,
-          sendDate: sendDate,
-          endDate: endDate || null,
+          sendDate: sendDate ? new Date(sendDate).toISOString() : null,
+          endDate: endDate ? new Date(endDate).toISOString() : null,
           clientId: selectedClientId,
           channel: 'whatsapp',
         }),
@@ -621,56 +638,67 @@ function NewReminderModal({ onClose, onCreated }: { onClose: () => void; onCreat
                 if (e.target.value === '') {
                   setSelectedClientId(null);
                   setSelectedClientName('');
-                  setCelphone('');
+                  setSearchResults([]);
                 }
               }}
               onFocus={() => setShowDropdown(true)}
-              placeholder="Escribe el nombre o teléfono del cliente..."
+              placeholder="Escribe el nombre del cliente..."
+              required
               className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
             />
-            {showDropdown && filteredClients.length > 0 && (
+            {showDropdown && searchQuery.trim().length >= 2 && (
               <div className="absolute z-10 w-full mt-1 bg-white dark:bg-dark-800 border border-gray-300 dark:border-gray-600 rounded-xl shadow-lg max-h-60 overflow-auto">
-                {filteredClients.map((client) => (
-                  <button
-                    key={client.id}
-                    type="button"
-                    onClick={() => handleSelectClient(client)}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-dark-700 border-b border-gray-100 dark:border-gray-700 last:border-0"
-                  >
-                    <div className="font-medium text-gray-900 dark:text-white">{client.name}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">{client.phone}</div>
-                  </button>
-                ))}
+                {isSearching ? (
+                  <div className="px-4 py-3 text-center text-gray-500 dark:text-gray-400">
+                    Buscando...
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  searchResults.map((client) => (
+                    <button
+                      key={client.id}
+                      type="button"
+                      onClick={() => handleSelectClient(client)}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-dark-700 border-b border-gray-100 dark:border-gray-700 last:border-0 flex items-center gap-3"
+                    >
+                      <div className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center overflow-hidden">
+                        {client.photoUrl ? (
+                          <img src={client.photoUrl} alt={client.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-primary-600 dark:text-primary-400 font-medium text-sm">
+                            {client.initials || client.name?.charAt(0) || '?'}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-white">{client.name}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{client.phone}</div>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-center text-gray-500 dark:text-gray-400">
+                    No se encontraron clientes
+                  </div>
+                )}
               </div>
             )}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Nombre del Recordatorio
+              Tipo de Recordatorio
             </label>
-            <input
-              type="text"
-              value={reminderName}
-              onChange={(e) => setReminderName(e.target.value)}
-              placeholder="Ej: Recordatorio de cita..."
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
               required
               className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Celular
-            </label>
-            <input
-              type="text"
-              value={celphone}
-              onChange={(e) => setCelphone(e.target.value)}
-              placeholder="Ej: 528331234567"
-              required
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
-            />
+            >
+              <option value="GENERAL">General</option>
+              <option value="APPOINTMENT">Cita</option>
+              <option value="PAYMENT">Pago</option>
+              <option value="FOLLOW_UP">Seguimiento</option>
+            </select>
           </div>
 
           <div>
@@ -692,7 +720,7 @@ function NewReminderModal({ onClose, onCreated }: { onClose: () => void; onCreat
               Fecha de Envío
             </label>
             <input
-              type="datetime-local"
+              type="date"
               value={sendDate}
               onChange={(e) => setSendDate(e.target.value)}
               required
@@ -702,10 +730,10 @@ function NewReminderModal({ onClose, onCreated }: { onClose: () => void; onCreat
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Fecha de Fin (Opcional)
+              Fecha Fin (Opcional)
             </label>
             <input
-              type="datetime-local"
+              type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
@@ -722,7 +750,7 @@ function NewReminderModal({ onClose, onCreated }: { onClose: () => void; onCreat
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !reminderName || !celphone || !message || !sendDate}
+              disabled={isSubmitting || !type || !message || !sendDate}
               className="flex-1 px-4 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl transition-colors disabled:opacity-50"
             >
               {isSubmitting ? 'Creando...' : 'Crear Recordatorio'}
@@ -739,10 +767,9 @@ function EditReminderModal({ reminder, onClose, onSave }: { reminder: Reminder; 
   const [searchQuery, setSearchQuery] = useState(reminder.client);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [celphone, setCelphone] = useState(reminder.phone);
-  const [reminderName, setReminderName] = useState(reminder.client);
+  const [type, setType] = useState(reminder.type || 'GENERAL');
   const [message, setMessage] = useState(reminder.message);
-  const [sendDate, setSendDate] = useState(reminder.scheduled_time ? new Date(reminder.scheduled_time).toISOString().slice(0, 16) : '');
+  const [sendDate, setSendDate] = useState(reminder.scheduled_time ? new Date(reminder.scheduled_time).toISOString().slice(0, 10) : '');
   const [endDate, setEndDate] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -780,7 +807,6 @@ function EditReminderModal({ reminder, onClose, onSave }: { reminder: Reminder; 
   const handleSelectClient = (client: Client) => {
     setSelectedClientId(client.id);
     setSearchQuery(client.name);
-    setCelphone(client.phone);
     setShowDropdown(false);
   };
 
@@ -789,11 +815,10 @@ function EditReminderModal({ reminder, onClose, onSave }: { reminder: Reminder; 
     setIsSubmitting(true);
 
     onSave({
-      name: reminderName,
-      celphone: celphone,
+      type: type,
       message: message,
-      sendDate: sendDate,
-      endDate: endDate || null,
+      sendDate: sendDate ? new Date(sendDate).toISOString() : null,
+      endDate: endDate ? new Date(endDate).toISOString() : null,
       clientId: selectedClientId,
     });
 
@@ -848,30 +873,19 @@ function EditReminderModal({ reminder, onClose, onSave }: { reminder: Reminder; 
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Nombre del Recordatorio
+              Tipo de Recordatorio
             </label>
-            <input
-              type="text"
-              value={reminderName}
-              onChange={(e) => setReminderName(e.target.value)}
-              placeholder="Ej: Recordatorio de cita..."
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
               required
               className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Celular
-            </label>
-            <input
-              type="text"
-              value={celphone}
-              onChange={(e) => setCelphone(e.target.value)}
-              placeholder="Ej: 528331234567"
-              required
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
-            />
+            >
+              <option value="GENERAL">General</option>
+              <option value="APPOINTMENT">Cita</option>
+              <option value="PAYMENT">Pago</option>
+              <option value="FOLLOW_UP">Seguimiento</option>
+            </select>
           </div>
 
           <div>
@@ -885,7 +899,7 @@ function EditReminderModal({ reminder, onClose, onSave }: { reminder: Reminder; 
               rows={3}
               required
               className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none resize-none"
-            />
+             />
           </div>
 
           <div>
@@ -893,7 +907,7 @@ function EditReminderModal({ reminder, onClose, onSave }: { reminder: Reminder; 
               Fecha de Envío
             </label>
             <input
-              type="datetime-local"
+              type="date"
               value={sendDate}
               onChange={(e) => setSendDate(e.target.value)}
               required
@@ -903,10 +917,10 @@ function EditReminderModal({ reminder, onClose, onSave }: { reminder: Reminder; 
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Fecha de Fin (Opcional)
+              Fecha Fin (Opcional)
             </label>
             <input
-              type="datetime-local"
+              type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
@@ -923,7 +937,7 @@ function EditReminderModal({ reminder, onClose, onSave }: { reminder: Reminder; 
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !reminderName || !celphone || !message || !sendDate}
+              disabled={isSubmitting || !type || !message || !sendDate}
               className="flex-1 px-4 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl transition-colors disabled:opacity-50"
             >
               {isSubmitting ? 'Guardando...' : 'Guardar Cambios'}

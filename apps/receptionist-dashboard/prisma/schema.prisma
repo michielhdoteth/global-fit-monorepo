@@ -128,7 +128,6 @@ model Client {
   team              Team?       @relation(fields: [teamId], references: [id])
   leads             Lead[]
   conversations     Conversation[]
-  reminders         Reminder[]
   campaigns         Campaign[]
   checkIns          CheckIn[]
   evoSyncs          EvoSync[]
@@ -173,8 +172,6 @@ model Appointment {
   notes             String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
-
-  reminders         Reminder[]
 
   @@index([clientId])
   @@index([date])
@@ -240,20 +237,20 @@ model CampaignRuleTarget {
 
 model Reminder {
   id        Int           @id @default(autoincrement())
+  name      String?
+  celphone  String?
   type      ReminderType @default(GENERAL)
   message   String
   status    ReminderStatus @default(PENDING)
   sendAt    DateTime?
   sentAt    DateTime?
+  endDate   DateTime?
   clientId  Int?
   appointmentId Int?
   channel   String?       // "whatsapp", "email", "sms"
   retries   Int           @default(0)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
-
-  client    Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
   @@index([appointmentId])

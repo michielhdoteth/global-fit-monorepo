@@ -36,6 +36,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       data: {
         message: body.message,
         sendAt: body.sendAt ? new Date(body.sendAt) : undefined,
+        endDate: body.endDate ? new Date(body.endDate) : undefined,
         type: body.type,
         clientId: body.clientId ? Number(body.clientId) : undefined,
         appointmentId: body.appointmentId ? Number(body.appointmentId) : undefined,

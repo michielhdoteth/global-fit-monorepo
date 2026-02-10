@@ -1,0 +1,22 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install dependencies for Baileys WhatsApp gateway
+COPY package.json ./
+RUN npm ci --only=production
+
+# Install system dependencies for QR code generation
+RUN apk add --no-cache qrcode qrencode
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S -u 1001 nodejs
+USER nodejs
+
+# Expose port (will be different per client: 2900, 2901, 2902)
+ARG PORT=2900
+EXPOSE $PORT
+
+# Start gateway
+CMD ["node", "gateway.js"]

@@ -52,6 +52,11 @@ const targetTypeLabels: Record<string, string> = {
   specific_status: 'Estado específico',
 };
 
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem('token');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
 export default function ReminderRulesPage() {
   const { toast, success, error: showError } = useToast();
   const [rules, setRules] = useState<ReminderRule[]>([]);
@@ -69,7 +74,7 @@ export default function ReminderRulesPage() {
 
   const fetchRules = async () => {
     try {
-      const response = await fetch('/api/reminders/rules');
+      const response = await fetch('/api/reminders/rules', { headers: getAuthHeaders() });
       if (response.ok) {
         const data = await response.json();
         setRules(data);
@@ -84,7 +89,7 @@ export default function ReminderRulesPage() {
   const fetchPreview = async (ruleId: number) => {
     setPreviewLoading(true);
     try {
-      const response = await fetch(`/api/reminders/rules/${ruleId}/preview`);
+      const response = await fetch(`/api/reminders/rules/${ruleId}/preview`, { headers: getAuthHeaders() });
       if (response.ok) {
         const data = await response.json();
         setPreview(data);
@@ -100,6 +105,7 @@ export default function ReminderRulesPage() {
     try {
       const response = await fetch(`/api/reminders/rules/${ruleId}/toggle`, {
         method: 'POST',
+        headers: getAuthHeaders(),
       });
       if (response.ok) {
         fetchRules();
@@ -114,6 +120,7 @@ export default function ReminderRulesPage() {
     try {
       const response = await fetch(`/api/reminders/rules/${deleteRuleId}`, {
         method: 'DELETE',
+        headers: getAuthHeaders(),
       });
       if (response.ok) {
         success('Regla eliminada', 'La regla de recordatorio ha sido eliminada');
@@ -137,6 +144,7 @@ export default function ReminderRulesPage() {
     try {
       const response = await fetch(`/api/reminders/rules/${ruleId}/generate`, {
         method: 'POST',
+        headers: getAuthHeaders(),
       });
       if (response.ok) {
         const data = await response.json();
@@ -376,6 +384,7 @@ export default function ReminderRulesPage() {
 }
 
 function RuleModal({ rule, onClose, onSave }: { rule: ReminderRule | null; onClose: () => void; onSave: () => void }) {
+  const { toast, success, error: showErrorToast } = useToast();
   const [name, setName] = useState(rule?.name || '');
   const [description, setDescription] = useState(rule?.description || '');
   const [ruleType, setRuleType] = useState(rule?.rule_type || 'custom');
@@ -411,15 +420,20 @@ function RuleModal({ rule, onClose, onSave }: { rule: ReminderRule | null; onClo
     try {
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify(ruleData),
       });
 
       if (response.ok) {
+        success(rule ? 'Regla actualizada' : 'Regla creada', 'La regla de recordatorio ha sido guardada correctamente');
         onSave();
+      } else {
+        const errorData = await response.json();
+        showErrorToast('Error', errorData.detail || 'No se pudo guardar la regla');
       }
     } catch (error) {
       console.error('Failed to save rule:', error);
+      showErrorToast('Error', 'No se pudo guardar la regla');
     } finally {
       setIsSubmitting(false);
     }

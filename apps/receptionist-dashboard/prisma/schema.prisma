@@ -110,6 +110,7 @@ model User {
 
 model Client {
   id                Int         @id @default(autoincrement())
+  clientId          Int?        @unique // ID from Evo (idMember)
   name              String
   email             String      @unique
   phone             String?
@@ -126,27 +127,28 @@ model Client {
 
   team              Team?       @relation(fields: [teamId], references: [id])
   leads             Lead[]
-  appointments      Appointment[]
   conversations     Conversation[]
-  reminders         Reminder[]
   campaigns         Campaign[]
   checkIns          CheckIn[]
   evoSyncs          EvoSync[]
+
+  @@index([clientId])
 }
 
 model Lead {
   id        Int       @id @default(autoincrement())
+  clientId  Int?      // Foreign key to Client.id
+  evoMemberId Int?    // ID from Evo (idMember)
   name      String
   email     String?   @unique
   phone     String?
   source    String?
   status    LeadStatus @default(NEW)
   notes     String?
-  clientId  Int
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client    Client?   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
 }
@@ -157,22 +159,19 @@ model Lead {
 
 model Appointment {
   id                Int               @id @default(autoincrement())
+  clientId          Int?              // ID from Evo (managed directly via API, no FK)
   title             String
   description       String?
   date              String            // Format: YYYY-MM-DD
   time              String?           // Format: HH:mm
   duration          Int?              // Minutes
   status            AppointmentStatus @default(PENDING)
-  clientId          Int
   reminderSent      Boolean           @default(false)
   reminderTime      String?           // Format: HH:mm
   location          String?
   notes             String?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
-
-  client            Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  reminders         Reminder[]
 
   @@index([clientId])
   @@index([date])
@@ -184,18 +183,18 @@ model Appointment {
 
 model Campaign {
   id        Int           @id @default(autoincrement())
+  clientId  Int?          // Foreign key to Client.id
   name      String
   description String?
   status    CampaignStatus @default(DRAFT)
   type      String?       // "email", "whatsapp", "sms"
   content   String?
-  clientId  Int
   startDate DateTime?
   endDate   DateTime?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client    Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
   @@index([status])
@@ -238,20 +237,20 @@ model CampaignRuleTarget {
 
 model Reminder {
   id        Int           @id @default(autoincrement())
+  name      String?
+  celphone  String?
   type      ReminderType @default(GENERAL)
   message   String
   status    ReminderStatus @default(PENDING)
   sendAt    DateTime?
   sentAt    DateTime?
+  endDate   DateTime?
   clientId  Int?
   appointmentId Int?
   channel   String?       // "whatsapp", "email", "sms"
   retries   Int           @default(0)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
-
-  client    Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
 
   @@index([clientId])
   @@index([appointmentId])
@@ -264,7 +263,7 @@ model Reminder {
 
 model Conversation {
   id        Int               @id @default(autoincrement())
-  clientId  Int
+  clientId  Int?              // Foreign key to Client.id
   status    ConversationStatus @default(ACTIVE)
   channel   String?           // "whatsapp", "email", "in-app"
   lastMessageAt DateTime?
@@ -273,7 +272,7 @@ model Conversation {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 
-  client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client    Client?           @relation(fields: [clientId], references: [id], onDelete: Cascade)
   messages  Message[]
 
   @@index([clientId])
@@ -307,12 +306,12 @@ model Message {
 
 model CheckIn {
   id        Int       @id @default(autoincrement())
-  clientId  Int
+  clientId  Int?      // Foreign key to Client.id
   timestamp DateTime  @default(now())
   notes     String?
   createdAt DateTime  @default(now())
 
-  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client    Client?   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
   @@index([timestamp])
@@ -495,14 +494,14 @@ model KeywordRule {
 
 model EvoSync {
   id        Int       @id @default(autoincrement())
-  clientId  Int
-  evoMemberId String?
+  clientId  Int?      // Foreign key to Client.id
+  evoMemberId Int?    // ID from Evo (idMember)
   lastSyncAt DateTime?
   syncStatus String?  // "pending", "success", "failed"
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client    Client?   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
 }

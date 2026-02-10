@@ -21,19 +21,6 @@ enum UserRole {
   STAFF
 }
 
-enum ClientStatus {
-  ACTIVE
-  INACTIVE
-  PENDING
-}
-
-enum LeadStatus {
-  NEW
-  CONTACTED
-  CONVERTED
-  LOST
-}
-
 enum AppointmentStatus {
   CONFIRMED
   PENDING
@@ -87,7 +74,6 @@ model Team {
   updatedAt DateTime @updatedAt
 
   members  User[]
-  clients  Client[]
 }
 
 model User {
@@ -105,50 +91,8 @@ model User {
 }
 
 // ============================================================================
-// CLIENT & CRM MODELS
+// CRM MODELS
 // ============================================================================
-
-model Client {
-  id                Int         @id @default(autoincrement())
-  name              String
-  email             String      @unique
-  phone             String?
-  plan              String?
-  planDetails       String?
-  status            ClientStatus @default(PENDING)
-  notes             String?
-  teamId            Int?
-  whatsappNumber    String?
-  customField1      String?
-  customField2      String?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-
-  team              Team?       @relation(fields: [teamId], references: [id])
-  leads             Lead[]
-  appointments      Appointment[]
-  conversations     Conversation[]
-  reminders         Reminder[]
-  campaigns         Campaign[]
-  checkIns          CheckIn[]
-}
-
-model Lead {
-  id        Int       @id @default(autoincrement())
-  name      String
-  email     String?   @unique
-  phone     String?
-  source    String?
-  status    LeadStatus @default(NEW)
-  notes     String?
-  clientId  Int
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  @@index([clientId])
-}
 
 // ============================================================================
 // APPOINTMENT & SCHEDULING
@@ -162,7 +106,7 @@ model Appointment {
   time              String?           // Format: HH:mm
   duration          Int?              // Minutes
   status            AppointmentStatus @default(PENDING)
-  clientId          Int
+  clientId          Int?
   reminderSent      Boolean           @default(false)
   reminderTime      String?           // Format: HH:mm
   location          String?
@@ -170,9 +114,6 @@ model Appointment {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
-  client            Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  @@index([clientId])
   @@index([date])
 }
 
@@ -193,9 +134,6 @@ model Campaign {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  client    Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
-
-  @@index([clientId])
   @@index([status])
 }
 
@@ -245,9 +183,6 @@ model Reminder {
   updatedAt DateTime      @updatedAt
   clientId  Int
 
-  client    Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  @@index([clientId])
   @@index([sendDate])
 }
 
@@ -266,10 +201,8 @@ model Conversation {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 
-  client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   messages  Message[]
 
-  @@index([clientId])
   @@index([status])
   @@index([lastMessageAt])
 }
@@ -305,9 +238,6 @@ model CheckIn {
   notes     String?
   createdAt DateTime  @default(now())
 
-  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  @@index([clientId])
   @@index([timestamp])
 }
 

@@ -4,6 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 import PageLayout from '../PageLayout';
 import { Search, Plus, ChevronLeft, ChevronRight, Clock, Calendar, User, X, Check, MoreVertical, Edit, Trash2 } from 'lucide-react';
 
+interface ClientInfo {
+  name: string;
+  email: string;
+  phone: string;
+  photoUrl: string | null;
+  initials: string;
+}
+
 interface Appointment {
   id: number;
   client: string;
@@ -17,12 +25,16 @@ interface Appointment {
   location?: string;
   notes?: string;
   duration?: number;
+  clientInfo?: ClientInfo;
 }
 
 interface Client {
   id: number;
   name: string;
   phone: string;
+  email?: string;
+  photoUrl?: string;
+  initials?: string;
 }
 
 export default function SchedulePage() {
@@ -83,9 +95,22 @@ export default function SchedulePage() {
     return date.toISOString().split('T')[0];
   };
 
+  const formatDateForDisplay = (dateStr: string) => {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+  };
+
+  const formatDateForApi = (dateStr: string) => {
+    if (!dateStr) return '';
+    const [day, month, year] = dateStr.split('/');
+    return `${year}-${month}-${day}`;
+  };
+
   const handleDayClick = (day: number) => {
     const selected = new Date(currentYear, currentDate.getMonth(), day);
-    setSelectedDate(formatDateForInput(selected));
+    const dateStr = formatDateForInput(selected);
+    setSelectedDate(dateStr);
   };
 
   const getAppointmentsForDate = (day: number) => {
@@ -228,7 +253,7 @@ export default function SchedulePage() {
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-gray-900 dark:text-white">
                   {selectedDate
-                    ? `Citas - ${new Date(selectedDate).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}`
+                    ? `Citas - ${new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}`
                     : 'Todas las Citas'}
                 </h3>
                 {selectedDate && (
@@ -268,7 +293,7 @@ export default function SchedulePage() {
                       </div>
                       <div className="h-12 w-px bg-gray-200 dark:bg-gray-700" />
                       <div>
-                        <p className="font-medium text-gray-900 dark:text-white">{apt.client}</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{apt.clientInfo?.name || apt.client}</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">{apt.type}</p>
                         <div className="flex items-center space-x-1 mt-1">
                           <User size={14} className="text-gray-400" />
@@ -328,7 +353,6 @@ export default function SchedulePage() {
       {editingAppointment && (
         <EditAppointmentModal
           appointment={editingAppointment}
-          clients={clients}
           onClose={() => setEditingAppointment(null)}
           onSave={handleEditAppointment}
         />
@@ -357,7 +381,10 @@ function NewAppointmentModal({ clients, onClose, onCreated }: { clients: Client[
   const [notes, setNotes] = useState('');
   const [duration, setDuration] = useState('60');
   const [loading, setLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<Client[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -369,16 +396,45 @@ function NewAppointmentModal({ clients, onClose, onCreated }: { clients: Client[
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.phone.includes(searchQuery)
-  );
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (searchQuery.trim().length >= 2) {
+      setIsSearching(true);
+      searchTimeoutRef.current = setTimeout(async () => {
+        try {
+          const response = await fetch(`/api/evo/search-members?name=${encodeURIComponent(searchQuery)}`);
+          if (response.ok) {
+            const data = await response.json();
+            setSearchResults(data);
+          }
+        } catch (error) {
+          console.error('Error searching members:', error);
+          setSearchResults([]);
+        } finally {
+          setIsSearching(false);
+        }
+      }, 300);
+    } else {
+      setSearchResults([]);
+      setIsSearching(false);
+    }
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery]);
 
   const handleSelectClient = (client: Client) => {
     setSelectedClientId(client.id);
     setSelectedClientName(client.name);
     setSearchQuery(client.name);
     setShowDropdown(false);
+    setSearchResults([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -439,26 +495,48 @@ function NewAppointmentModal({ clients, onClose, onCreated }: { clients: Client[
                 if (e.target.value === '') {
                   setSelectedClientId(null);
                   setSelectedClientName('');
+                  setSearchResults([]);
                 }
               }}
               onFocus={() => setShowDropdown(true)}
-              placeholder="Escribe el nombre o teléfono del cliente..."
+              placeholder="Escribe el nombre del cliente..."
               required
               className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
             />
-            {showDropdown && filteredClients.length > 0 && (
+            {showDropdown && searchQuery.trim().length >= 2 && (
               <div className="absolute z-10 w-full mt-1 bg-white dark:bg-dark-800 border border-gray-300 dark:border-gray-600 rounded-xl shadow-lg max-h-60 overflow-auto">
-                {filteredClients.map((client) => (
-                  <button
-                    key={client.id}
-                    type="button"
-                    onClick={() => handleSelectClient(client)}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-dark-700 border-b border-gray-100 dark:border-gray-700 last:border-0"
-                  >
-                    <div className="font-medium text-gray-900 dark:text-white">{client.name}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">{client.phone}</div>
-                  </button>
-                ))}
+                {isSearching ? (
+                  <div className="px-4 py-3 text-center text-gray-500 dark:text-gray-400">
+                    Buscando...
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  searchResults.map((client) => (
+                    <button
+                      key={client.id}
+                      type="button"
+                      onClick={() => handleSelectClient(client)}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-dark-700 border-b border-gray-100 dark:border-gray-700 last:border-0 flex items-center gap-3"
+                    >
+                      <div className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center overflow-hidden">
+                        {client.photoUrl ? (
+                          <img src={client.photoUrl} alt={client.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-primary-600 dark:text-primary-400 font-medium text-sm">
+                            {client.initials || client.name?.charAt(0) || '?'}
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-white">{client.name}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{client.phone}</div>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-center text-gray-500 dark:text-gray-400">
+                    No se encontraron clientes
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -577,55 +655,24 @@ function NewAppointmentModal({ clients, onClose, onCreated }: { clients: Client[
   );
 }
 
-function EditAppointmentModal({ appointment, clients, onClose, onSave }: { appointment: Appointment; clients: Client[]; onClose: () => void; onSave: (data: Partial<Appointment>) => void }) {
+function EditAppointmentModal({ appointment, onClose, onSave }: { appointment: Appointment; onClose: () => void; onSave: (data: Partial<Appointment>) => void }) {
   const [title, setTitle] = useState(appointment.type);
-  const [date, setDate] = useState(appointment.date);
+  const [date, setDate] = useState(appointment.date || '');
   const [time, setTime] = useState(appointment.time.replace(' hrs', ''));
-  const [selectedClientId, setSelectedClientId] = useState<number | null>(appointment.clientId || null);
-  const [selectedClientName, setSelectedClientName] = useState(appointment.client);
-  const [searchQuery, setSearchQuery] = useState(appointment.client);
-  const [showDropdown, setShowDropdown] = useState(false);
   const [location, setLocation] = useState(appointment.instructor || '');
   const [notes, setNotes] = useState(appointment.notes || '');
   const [duration, setDuration] = useState(appointment.duration?.toString() || '60');
   const [loading, setLoading] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    client.phone.includes(searchQuery)
-  );
-
-  const handleSelectClient = (client: Client) => {
-    setSelectedClientId(client.id);
-    setSelectedClientName(client.name);
-    setSearchQuery(client.name);
-    setShowDropdown(false);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClientId) {
-      alert('Por favor selecciona un cliente');
-      return;
-    }
-    setLoading(true);
+    setLoading(false);
 
     await onSave({
       title,
       date,
       time,
-      clientId: selectedClientId,
+      clientId: appointment.clientId,
       location,
       notes,
       duration: Number(duration),
@@ -648,41 +695,13 @@ function EditAppointmentModal({ appointment, clients, onClose, onSave }: { appoi
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div ref={dropdownRef} className="relative">
+          <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Buscar Cliente
+              Cliente
             </label>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setShowDropdown(true);
-                if (e.target.value === '') {
-                  setSelectedClientId(null);
-                  setSelectedClientName('');
-                }
-              }}
-              onFocus={() => setShowDropdown(true)}
-              placeholder="Escribe el nombre o teléfono del cliente..."
-              required
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
-            />
-            {showDropdown && filteredClients.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-dark-800 border border-gray-300 dark:border-gray-600 rounded-xl shadow-lg max-h-60 overflow-auto">
-                {filteredClients.map((client) => (
-                  <button
-                    key={client.id}
-                    type="button"
-                    onClick={() => handleSelectClient(client)}
-                    className="w-full px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-dark-700 border-b border-gray-100 dark:border-gray-700 last:border-0"
-                  >
-                    <div className="font-medium text-gray-900 dark:text-white">{client.name}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">{client.phone}</div>
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-dark-900 text-gray-600 dark:text-gray-300">
+              {appointment.clientInfo?.name || appointment.client}
+            </div>
           </div>
 
           <div>
@@ -708,7 +727,6 @@ function EditAppointmentModal({ appointment, clients, onClose, onSave }: { appoi
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                required
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none"
               />
             </div>
@@ -777,7 +795,7 @@ function EditAppointmentModal({ appointment, clients, onClose, onSave }: { appoi
             </button>
             <button
               type="submit"
-              disabled={loading || !title || !date || !selectedClientId}
+              disabled={loading || !title || !date}
               className="flex-1 px-4 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center space-x-2"
             >
               {loading ? (
@@ -825,7 +843,7 @@ function DeleteAppointmentModal({ appointment, onClose, onConfirm }: { appointme
 
         <div className="p-6">
           <p className="text-gray-600 dark:text-gray-300">
-            ¿Estás seguro de que deseas eliminar la cita de <strong>{appointment.client}</strong>?
+            ¿Estás seguro de que deseas eliminar la cita de <strong>{appointment.clientInfo?.name || appointment.client}</strong>?
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
             {appointment.type} - {appointment.date} {appointment.time}

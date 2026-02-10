@@ -1,0 +1,14 @@
+{
+  "name": "multi-tenant-monitoring",
+  "version": "1.0.0",
+  "description": "Shared monitoring system for all client gateways",
+  "main": "connection-watcher.js",
+  "scripts": {
+    "start": "node connection-watcher.js",
+    "status": "node connection-watcher.js --status",
+    "test-alert": "node alert-sender.js --test"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.2.2"
+  }
+}

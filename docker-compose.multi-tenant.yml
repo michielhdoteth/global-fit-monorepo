@@ -1,0 +1,127 @@
+version: '3.8'
+
+services:
+  brain-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.brain-api
+    container_name: brain-api
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - BRAIN_API_PORT=3000
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_IDS=${TELEGRAM_CHAT_IDS}
+      - SMS_ENABLED=${SMS_ENABLED:-false}
+    volumes:
+      - ./shared/brain-api:/app
+      - ./client-a:/app/client-a:ro
+      - ./client-b:/app/client-b:ro
+      - ./client-c:/app/client-c:ro
+    restart: unless-stopped
+    networks:
+      - whatsapp-network
+
+  client-a-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+      args:
+        CLIENT_ID: client-a
+        PORT: 2900
+    container_name: client-a-gateway
+    ports:
+      - "2900:2900"
+    environment:
+      - NODE_ENV=production
+      - PORT=2900
+      - CLIENT_ID=client-a
+      - BRAIN_API_URL=http://brain-api:3000
+    volumes:
+      - ./client-a/whatsapp-gateway:/app
+      - ./client-a/storage:/app/storage
+      - ./client-a/config:/app/config
+    depends_on:
+      - brain-api
+    restart: unless-stopped
+    networks:
+      - whatsapp-network
+
+  client-b-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+      args:
+        CLIENT_ID: client-b
+        PORT: 2901
+    container_name: client-b-gateway
+    ports:
+      - "2901:2901"
+    environment:
+      - NODE_ENV=production
+      - PORT=2901
+      - CLIENT_ID=client-b
+      - BRAIN_API_URL=http://brain-api:3000
+    volumes:
+      - ./client-b/whatsapp-gateway:/app
+      - ./client-b/storage:/app/storage
+      - ./client-b/config:/app/config
+    depends_on:
+      - brain-api
+    restart: unless-stopped
+    networks:
+      - whatsapp-network
+
+  client-c-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+      args:
+        CLIENT_ID: client-c
+        PORT: 2902
+    container_name: client-c-gateway
+    ports:
+      - "2902:2902"
+    environment:
+      - NODE_ENV=production
+      - PORT=2902
+      - CLIENT_ID=client-c
+      - BRAIN_API_URL=http://brain-api:3000
+    volumes:
+      - ./client-c/whatsapp-gateway:/app
+      - ./client-c/storage:/app/storage
+      - ./client-c/config:/app/config
+    depends_on:
+      - brain-api
+    restart: unless-stopped
+    networks:
+      - whatsapp-network
+
+  connection-watcher:
+    build:
+      context: .
+      dockerfile: Dockerfile.watcher
+    container_name: connection-watcher
+    environment:
+      - NODE_ENV=production
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_IDS=${TELEGRAM_CHAT_IDS}
+    volumes:
+      - ./shared/monitoring:/app
+    depends_on:
+      - client-a-gateway
+      - client-b-gateway
+      - client-c-gateway
+    restart: unless-stopped
+    networks:
+      - whatsapp-network
+
+networks:
+  whatsapp-network:
+    driver: bridge
+
+volumes:
+  client-a-data:
+  client-b-data:
+  client-c-data:

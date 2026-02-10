@@ -1,0 +1,7 @@
+{
+  "clientId": "client-b",
+  "name": "Client B",
+  "port": 2901,
+  "brainApiUrl": "http://localhost:3000",
+  "createdAt": "2024-01-01T00:00:00Z"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "Fusion Galeria",
+  "description": "Premier art gallery showcasing contemporary and traditional artwork",
+  "address": "123 Art District Ave, Creative City, CC 12345",
+  "phone": "+1234567890",
+  "email": "info@fusiongaleria.com",
+  "website": "https://fusiongaleria.com",
+  "services_list": "• Art exhibitions\n• Private viewings\n• Art consultations\n• Custom commissions\n• Artist workshops",
+  "pricing_info": "Free admission to exhibitions\nPrivate viewings: $50\nArt consultations: $75/hour\nCustom pieces: varies by artist",
+  "payment_methods": "Cash, Credit Card, PayPal",
+  "response_time": "30 minutes"
+}

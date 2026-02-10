@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
+import prisma from "@/lib/db";
 import { requireUser } from "@/lib/token-auth";
 import { getEvoClientFromDb } from "@/lib/evo-api";
+
+async function safeDbCall<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    console.error("DB call failed:", error);
+    return fallback;
+  }
+}
 
 export async function POST(request: Request) {
   const currentUser = await requireUser(request.headers.get("authorization"));
@@ -112,30 +122,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
   }
 
-  const prisma = (await import("@/lib/db")).default;
-
-  const evoSettings = await prisma.evoSettings.findFirst();
+  const evoSettings = await safeDbCall(
+    () => prisma.evoSettings.findFirst(),
+    null
+  );
   if (!evoSettings) {
     return NextResponse.json({ configured: false, enabled: false });
   }
 
-  const totalClients = await prisma.client.count();
-  const syncedClients = await prisma.evoSync.count({
-    where: { syncStatus: "success" },
-  });
-  const totalCheckIns = await prisma.checkIn.count();
-  const clientsWithPayments = await prisma.client.count({
-    where: { notes: { contains: "[EVO Payments]" } },
-  });
-
-  const lastMemberSync = await prisma.evoSync.findFirst({
-    where: { syncStatus: "success" },
-    orderBy: { lastSyncAt: "desc" },
-  });
-
-  const lastCheckIn = await prisma.checkIn.findFirst({
-    orderBy: { createdAt: "desc" },
-  });
+  const [totalClients, syncedClients, totalCheckIns, clientsWithPayments, lastMemberSync, lastCheckIn] = await Promise.all([
+    safeDbCall(() => prisma.client.count(), 0),
+    safeDbCall(() => prisma.evoSync.count({ where: { syncStatus: "success" } }), 0),
+    safeDbCall(() => prisma.checkIn.count(), 0),
+    safeDbCall(() => prisma.client.count({ where: { notes: { contains: "[EVO Payments]" } } }), 0),
+    safeDbCall(() => prisma.evoSync.findFirst({ where: { syncStatus: "success" }, orderBy: { lastSyncAt: "desc" } }), null),
+    safeDbCall(() => prisma.checkIn.findFirst({ orderBy: { createdAt: "desc" } }), null),
+  ]);
 
   return NextResponse.json({
     configured: Boolean(evoSettings.apiKey),

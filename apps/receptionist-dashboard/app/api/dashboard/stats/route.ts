@@ -3,6 +3,51 @@ import { prisma } from "@/lib/database";
 import { requireUser } from "@/lib/token-auth";
 import { successResponse, errorResponse } from "@/lib/utils";
 import { formatDateAsString } from "@/lib/utils";
+import { createEvoClient } from "@/lib/evo-api";
+
+async function safeDbCall<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    console.error("DB call failed:", error);
+    return fallback;
+  }
+}
+
+async function getEvoMemberStats() {
+  const dns = process.env.EVO_DNS;
+  const apiKey = process.env.EVO_TOKEN;
+  const username = process.env.EVO_USERNAME;
+
+  if (!dns || !apiKey) {
+    return { totalSocios: 0, membresiasActivas: 0, evoConnected: false };
+  }
+
+  try {
+    const evoClient = createEvoClient({ dns, apiKey, username });
+    const connectionTest = await evoClient.testConnection();
+    
+    if (!connectionTest.success) {
+      return { totalSocios: 0, membresiasActivas: 0, evoConnected: false };
+    }
+
+    const members = await evoClient.getActiveMembers();
+    
+    if (!members || members.length === 0) {
+      return { totalSocios: 0, membresiasActivas: 0, evoConnected: true };
+    }
+
+    const totalSocios = members.length;
+    const membresiasActivas = members.filter(
+      (m) => m.membershipStatus?.toLowerCase() === "active" || m.status?.toLowerCase() === "active"
+    ).length;
+
+    return { totalSocios, membresiasActivas, evoConnected: true };
+  } catch (error) {
+    console.error("[EVO_STATS] Error fetching EVO stats:", error);
+    return { totalSocios: 0, membresiasActivas: 0, evoConnected: false };
+  }
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,7 +57,6 @@ export async function GET(req: NextRequest) {
     const today = formatDateAsString(new Date());
     const now = new Date();
 
-    // Calculate month-over-month
     const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
@@ -30,32 +74,37 @@ export async function GET(req: NextRequest) {
       activeCampaigns,
       checkInsToday,
       todayMetrics,
+      evoStatsResult,
     ] = await Promise.all([
-      prisma.client.count(),
-      prisma.client.count({ where: { status: "ACTIVE" } }),
-      prisma.client.count({ where: { createdAt: { gte: thisMonthStart } } }),
-      prisma.client.count({
+      safeDbCall(() => prisma.client.count(), 0),
+      safeDbCall(() => prisma.client.count({ where: { NOT: { status: "INACTIVE" } } }), 0),
+      safeDbCall(() => prisma.client.count({ where: { createdAt: { gte: thisMonthStart } } }), 0),
+      safeDbCall(() => prisma.client.count({
         where: {
           createdAt: { gte: lastMonthStart, lt: thisMonthStart },
         },
-      }),
-      prisma.client.count({ where: { status: "ACTIVE", createdAt: { gte: thisMonthStart } } }),
-      prisma.client.count({ where: { status: "ACTIVE", createdAt: { gte: lastMonthStart, lt: thisMonthStart } } }),
-      prisma.appointment.count({ where: { status: "PENDING" } }),
-      prisma.appointment.count({ where: { date: today } }),
-      prisma.conversation.count({ where: { status: "ACTIVE" } }),
-      prisma.reminder.count({ where: { status: "PENDING" } }),
-      prisma.campaign.count({ where: { status: "ACTIVE" } }),
-      prisma.checkIn.count({
+      }), 0),
+      safeDbCall(() => prisma.client.count({ where: { NOT: { status: "INACTIVE" }, createdAt: { gte: thisMonthStart } } }), 0),
+      safeDbCall(() => prisma.client.count({ where: { NOT: { status: "INACTIVE" }, createdAt: { gte: lastMonthStart, lt: thisMonthStart } } }), 0),
+      safeDbCall(() => prisma.appointment.count({ where: { status: "PENDING" } }), 0),
+      safeDbCall(() => prisma.appointment.count({ where: { date: today } }), 0),
+      safeDbCall(() => prisma.conversation.count({ where: { status: "ACTIVE" } }), 0),
+      safeDbCall(() => prisma.reminder.count({ where: { status: "PENDING" } }), 0),
+      safeDbCall(() => prisma.campaign.count({ where: { status: "ACTIVE" } }), 0),
+      safeDbCall(() => prisma.checkIn.count({
         where: {
           createdAt: {
             gte: new Date(today),
             lt: new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000),
           },
         },
-      }),
-      prisma.messageMetrics.findFirst({ where: { date: today } }),
+      }), 0),
+      safeDbCall(() => prisma.messageMetrics.findFirst({ where: { date: today } }), null),
+      getEvoMemberStats(),
     ]);
+
+    const evoStats = evoStatsResult || { totalSocios: 0, membresiasActivas: 0, evoConnected: false };
+    const metrics = todayMetrics as { totalSent?: number; delivered?: number } | null;
 
     const totalClientsTrend =
       clientsLastMonth > 0
@@ -66,8 +115,8 @@ export async function GET(req: NextRequest) {
         ? Math.round(((activeClientsThisMonth / activeClientsLastMonth) * 100 - 100) * 10) / 10
         : 0;
     const deliveryRate =
-      todayMetrics && todayMetrics.totalSent > 0
-        ? Math.round(((todayMetrics.delivered || 0) / todayMetrics.totalSent) * 100 * 10) / 10
+      metrics && (metrics.totalSent || 0) > 0
+        ? Math.round(((metrics.delivered || 0) / (metrics.totalSent || 1)) * 100 * 10) / 10
         : 0;
 
     return NextResponse.json(
@@ -81,13 +130,18 @@ export async function GET(req: NextRequest) {
         activeChats,
         pendingReminders,
         activeCampaigns,
-        messagesTotal: todayMetrics?.totalSent || 0,
+        messagesTotal: metrics?.totalSent || 0,
         deliveryRate,
         checkInsToday,
         botStatus: {
           connected: true,
           botName: "Kapso Bot",
           lastHeartbeat: new Date().toISOString(),
+        },
+        evoStats: {
+          totalSocios: evoStats.totalSocios,
+          membresiasActivas: evoStats.membresiasActivas,
+          evoConnected: evoStats.evoConnected,
         },
       })
     );

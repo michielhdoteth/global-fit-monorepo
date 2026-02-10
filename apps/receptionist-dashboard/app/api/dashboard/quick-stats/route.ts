@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { requireUser } from "@/lib/token-auth";
 
+async function safeDbCall<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    console.error("DB call failed:", error);
+    return fallback;
+  }
+}
+
 export async function GET(request: Request) {
   const currentUser = await requireUser(request.headers.get("authorization"));
   if (!currentUser) {
@@ -17,11 +26,11 @@ export async function GET(request: Request) {
     activeChats,
     pendingReminders,
   ] = await Promise.all([
-    prisma.client.count(),
-    prisma.client.count({ where: { status: "ACTIVE" } }),
-    prisma.appointment.count({ where: { date: todayStr } }),
-    prisma.conversation.count({ where: { status: "ACTIVE" } }),
-    prisma.reminder.count({ where: { status: "PENDING" } }),
+    safeDbCall(() => prisma.client.count(), 0),
+    safeDbCall(() => prisma.client.count({ where: { NOT: { status: "INACTIVE" } } }), 0),
+    safeDbCall(() => prisma.appointment.count({ where: { date: todayStr } }), 0),
+    safeDbCall(() => prisma.conversation.count({ where: { status: "ACTIVE" } }), 0),
+    safeDbCall(() => prisma.reminder.count({ where: { status: "PENDING" } }), 0),
   ]);
 
   return NextResponse.json({

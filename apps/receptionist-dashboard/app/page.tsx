@@ -21,8 +21,8 @@ import { Spinner } from "@/components/ui/spinner";
 interface DashboardStats {
   totalClients: number;
   activeClients: number;
-  totalClientsTrend: number;
-  activeClientsTrend: number;
+  totalClientsTrend: number | null | undefined;
+  activeClientsTrend: number | null | undefined;
   pendingAppointments: number;
   todayAppointments: number;
   activeChats: number;
@@ -35,6 +35,11 @@ interface DashboardStats {
     connected: boolean;
     botName: string;
     lastHeartbeat: string | null;
+  };
+  evoStats?: {
+    totalSocios: number;
+    membresiasActivas: number;
+    evoConnected: boolean;
   };
 }
 
@@ -67,6 +72,7 @@ function DashboardContent() {
           deliveryRate: 0,
           checkInsToday: 0,
           botStatus: { connected: false, botName: "Global Gym Bot", lastHeartbeat: null },
+          evoStats: { totalSocios: 0, membresiasActivas: 0, evoConnected: false },
         });
         setStatsLoading(false);
         return;
@@ -93,14 +99,16 @@ function DashboardContent() {
           deliveryRate: 0,
           checkInsToday: 0,
           botStatus: { connected: false, botName: "Global Gym Bot", lastHeartbeat: null },
+          evoStats: { totalSocios: 0, membresiasActivas: 0, evoConnected: false },
         });
         setStatsLoading(false);
         return;
       }
 
       const data = await response.json();
-      setStats(data);
+      setStats(data.data);
     } catch (err) {
+      console.error("Error loading stats:", err);
       setStats({
         totalClients: 0,
         activeClients: 0,
@@ -115,6 +123,7 @@ function DashboardContent() {
         deliveryRate: 0,
         checkInsToday: 0,
         botStatus: { connected: false, botName: "Global Gym Bot", lastHeartbeat: null },
+        evoStats: { totalSocios: 0, membresiasActivas: 0, evoConnected: false },
       });
     } finally {
       setStatsLoading(false);
@@ -137,7 +146,8 @@ function DashboardContent() {
     );
   }
 
-  const getTrendData = (trendValue: number): TrendData => {
+  const getTrendData = (trendValue: number): TrendData | undefined => {
+    if (trendValue === 0) return undefined;
     const formattedValue = `${trendValue >= 0 ? '+' : ''}${trendValue.toFixed(1)}%`;
     return {
       value: formattedValue,
@@ -149,20 +159,22 @@ function DashboardContent() {
     {
       id: "total-socios",
       label: "Total Socios",
-      value: formatNumber(stats?.totalClients || 0),
-      subValue: "Contactos",
-      trend: getTrendData(stats?.totalClientsTrend || 0),
+      value: formatNumber(stats?.evoStats?.totalSocios || stats?.totalClients || 0),
+      subValue: "Registrados",
+      trend: stats?.totalClientsTrend ? getTrendData(stats.totalClientsTrend) : undefined,
       icon: Users,
       colorClass: "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
+      fromEvo: stats?.evoStats?.evoConnected && (stats?.evoStats?.totalSocios || 0) > 0,
     },
     {
       id: "active-members",
-      label: "Membresias Activas",
-      value: formatNumber(stats?.activeClients || 0),
-      subValue: "Activos",
-      trend: getTrendData(stats?.activeClientsTrend || 0),
+      label: "Membresías Activas",
+      value: formatNumber(stats?.evoStats?.membresiasActivas || stats?.activeClients || 0),
+      subValue: "Vigentes",
+      trend: stats?.activeClientsTrend ? getTrendData(stats.activeClientsTrend) : undefined,
       icon: UserCheck,
       colorClass: "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400",
+      fromEvo: stats?.evoStats?.evoConnected && (stats?.evoStats?.membresiasActivas || 0) > 0,
     },
     {
       id: "expiring",
@@ -213,7 +225,14 @@ function DashboardContent() {
               </div>
 
               <div className="mt-4">
-                <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
+                <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  {stat.label}
+                  {stat.fromEvo && (
+                    <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 bg-blue-50 text-blue-600 border-blue-200">
+                      EVO
+                    </Badge>
+                  )}
+                </p>
                 <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
                   {stat.value}
                 </h3>

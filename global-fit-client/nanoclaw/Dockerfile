@@ -2,6 +2,9 @@ FROM oven/bun:1-alpine
 
 WORKDIR /app
 
+# Install build dependencies for native modules (better-sqlite3)
+RUN apk add --no-cache python3 make g++ sqlite
+
 # Install dependencies
 COPY package*.json ./
 RUN bun install --production

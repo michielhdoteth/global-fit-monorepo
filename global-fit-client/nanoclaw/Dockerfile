@@ -1,9 +1,12 @@
-FROM oven/bun:1-alpine
+FROM node:18-alpine
 
 WORKDIR /app
 
 # Install build dependencies for native modules (better-sqlite3)
 RUN apk add --no-cache python3 make g++ sqlite
+
+# Install bun globally
+RUN npm install -g bun
 
 # Install dependencies
 COPY package*.json ./
@@ -19,7 +22,7 @@ EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD bun -e "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1))"
+  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Start server
 CMD ["bun", "server.js"]

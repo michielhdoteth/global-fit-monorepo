@@ -12,6 +12,15 @@ RUN npm install -g bun
 COPY package*.json ./
 RUN bun install --production
 
+# Copy application code
+COPY server.js ./
+COPY message-router.js ./
+COPY receptionist-logic.js ./
+COPY response-router.js ./
+
+# Copy storage db.js to app directory
+COPY ../storage/db.js /app/storage/db.js
+
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S -u 1001 nodejs

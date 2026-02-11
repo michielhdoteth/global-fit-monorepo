@@ -17,6 +17,9 @@ COPY gateway.js ./
 COPY qr-handler.js ./
 COPY session-manager.js ./
 
+# Copy storage db.js to app directory
+COPY ../storage/db.js /app/storage/db.js
+
 # Create directories
 RUN mkdir -p sessions storage
 

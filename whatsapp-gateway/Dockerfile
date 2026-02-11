@@ -1,10 +1,10 @@
-FROM node:18-alpine
+FROM oven/bun:1-alpine
 
 WORKDIR /app
 
 # Install dependencies
 COPY package*.json ./
-RUN npm ci --only=production
+RUN bun install --production
 
 # Copy application code
 COPY gateway.js ./
@@ -19,7 +19,7 @@ EXPOSE 2901
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:2901/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD bun -e "fetch('http://localhost:2901/health').then(r=>process.exit(r.ok?0:1))"
 
 # Start application
-CMD ["node", "gateway.js"]
+CMD ["bun", "gateway.js"]

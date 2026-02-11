@@ -218,6 +218,17 @@ async function sendAlert(message) {
   // Could add SMS alert here via Twilio
 }
 
+// Authentication middleware for sensitive endpoints
+const authenticate = (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  const validKey = process.env.API_KEY || 'change-me-in-production';
+
+  if (apiKey !== validKey) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+};
+
 // Express routes
 app.use(express.json());
 
@@ -252,7 +263,7 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-app.post('/api/restart', async (req, res) => {
+app.post('/api/restart', authenticate, async (req, res) => {
   try {
     if (sock) {
       sock.logout();
@@ -266,7 +277,7 @@ app.post('/api/restart', async (req, res) => {
   }
 });
 
-app.post('/api/handoff/toggle', (req, res) => {
+app.post('/api/handoff/toggle', authenticate, (req, res) => {
   handoffMode = !handoffMode;
   logger.info({ handoffMode }, 'Handoff mode toggled');
   res.json({ handoffMode });

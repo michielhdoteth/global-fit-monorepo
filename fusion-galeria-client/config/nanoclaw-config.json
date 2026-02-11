@@ -1,0 +1,38 @@
+{
+  "client": {
+    "id": "fusion-galeria",
+    "name": "Fusion Galeria",
+    "type": "art-gallery",
+    "port": 3001
+  },
+  "whatsapp": {
+    "gateway_port": 3101,
+    "phone_number_country_code": 1,
+    "business_number": "",
+    "auto_reply_enabled": true,
+    "handoff_mode_on_qr": true
+  },
+  "database": {
+    "path": "./storage/db.sqlite3",
+    "backup_enabled": true,
+    "backup_interval_hours": 24
+  },
+  "receptionist": {
+    "greeting_message": "Welcome to Fusion Galeria! 👋 I'm your AI assistant. How can I help you today?",
+    "response_time": "30 minutes",
+    "escalation_enabled": true,
+    "confidence_threshold": 0.7
+  },
+  "alerts": {
+    "telegram_enabled": true,
+    "sms_enabled": false,
+    "escalation_alert": true,
+    "disconnect_alert": true
+  },
+  "features": {
+    "appointment_booking": true,
+    "service_inquiries": true,
+    "pricing_inquiries": true,
+    "hours_inquiries": true
+  }
+}

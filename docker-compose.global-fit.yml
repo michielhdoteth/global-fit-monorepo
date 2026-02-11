@@ -19,11 +19,6 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
     volumes:
-      - ./whatsapp-gateway:/app
-      - ./whatsapp-gateway/gateway.js:/app/gateway.js:ro
-      - ./whatsapp-gateway/qr-handler.js:/app/qr-handler.js:ro
-      - ./whatsapp-gateway/session-manager.js:/app/session-manager.js:ro
-      - ./whatsapp-gateway/package.json:/app/package.json:ro
       - ./global-fit-data/sessions:/app/sessions
       - ./global-fit-data/storage:/app/storage
     restart: unless-stopped
@@ -50,11 +45,6 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     volumes:
       - ./global-fit-data/storage:/app/storage
-      - ./global-fit-client/nanoclaw/server.js:/app/server.js:ro
-      - ./global-fit-client/nanoclaw/message-router.js:/app/message-router.js:ro
-      - ./global-fit-client/nanoclaw/receptionist-logic.js:/app/receptionist-logic.js:ro
-      - ./global-fit-client/nanoclaw/response-router.js:/app/response-router.js:ro
-      - ./global-fit-client/nanoclaw/package.json:/app/package.json:ro
     restart: unless-stopped
     networks:
       - global-fit-network

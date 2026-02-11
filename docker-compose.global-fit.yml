@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   global-fit-gateway:
     build:
@@ -22,13 +20,17 @@ services:
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
     volumes:
       - ./whatsapp-gateway:/app
+      - ./whatsapp-gateway/gateway.js:/app/gateway.js:ro
+      - ./whatsapp-gateway/qr-handler.js:/app/qr-handler.js:ro
+      - ./whatsapp-gateway/session-manager.js:/app/session-manager.js:ro
+      - ./whatsapp-gateway/package.json:/app/package.json:ro
       - ./global-fit-data/sessions:/app/sessions
       - ./global-fit-data/storage:/app/storage
     restart: unless-stopped
     networks:
       - global-fit-network
     healthcheck:
-      test: ["CMD", "bun", "-e", "fetch('http://localhost:2901/health').then(r=>process.exit(r.ok?0:1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:2901/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -47,13 +49,17 @@ services:
       - CLIENT_ID=global-fit
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     volumes:
-      - ./global-fit-client/nanoclaw:/app
       - ./global-fit-data/storage:/app/storage
+      - ./global-fit-client/nanoclaw/server.js:/app/server.js:ro
+      - ./global-fit-client/nanoclaw/message-router.js:/app/message-router.js:ro
+      - ./global-fit-client/nanoclaw/receptionist-logic.js:/app/receptionist-logic.js:ro
+      - ./global-fit-client/nanoclaw/response-router.js:/app/response-router.js:ro
+      - ./global-fit-client/nanoclaw/package.json:/app/package.json:ro
     restart: unless-stopped
     networks:
       - global-fit-network
     healthcheck:
-      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
       timeout: 10s
       retries: 3

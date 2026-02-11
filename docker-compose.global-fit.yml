@@ -1,18 +1,17 @@
 services:
-  global-fit-gateway:
+  global-fit-whatsapp:
     build:
-      context: .
-      dockerfile: Dockerfile.gateway
-    container_name: global-fit-whatsapp-gateway
+      context: ./whatsapp-gateway
+      dockerfile: Dockerfile
+    container_name: global-fit-whatsapp
     ports:
       - "2901:2901"
     environment:
       - NODE_ENV=production
       - PORT=2901
-      - CLIENT_ID=global-fit
       - CLIENT_NAME=Global Fit
       - API_KEY=${GLOBAL_FIT_API_KEY:-global-fit-secret-2024}
-      - BRAIN_API_URL=http://global-fit-brain:3000
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - SESSION_PATH=/app/sessions
       - DATABASE_PATH=/app/storage/whatsapp.db
       - LOG_LEVEL=info
@@ -26,30 +25,6 @@ services:
       - global-fit-network
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:2901/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
-  global-fit-brain:
-    build:
-      context: .
-      dockerfile: Dockerfile.brain
-    container_name: global-fit-brain-api
-    ports:
-      - "3001:3000"
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - CLIENT_ID=global-fit
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-    volumes:
-      - ./global-fit-data/storage:/app/storage
-    restart: unless-stopped
-    networks:
-      - global-fit-network
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
       timeout: 10s
       retries: 3

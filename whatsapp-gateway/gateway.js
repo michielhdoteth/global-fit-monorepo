@@ -8,7 +8,7 @@ import pino from 'pino';
 import dotenv from 'dotenv';
 import { SessionManager } from './session-manager.js';
 import { QRHandler } from './qr-handler.js';
-import Database from '../storage/db.js';
+import openai from 'openai';
 
 dotenv.config();
 
@@ -20,9 +20,6 @@ const PORT = process.env.PORT || 3000;
 const sessionManager = new SessionManager(process.env.SESSION_PATH || './sessions');
 const qrHandler = new QRHandler(sessionManager);
 
-// Initialize database
-const db = new Database(process.env.DATABASE_PATH || './storage/whatsapp.db');
-
 // Store for messages
 const store = makeInMemoryStore({ logger });
 
@@ -31,6 +28,26 @@ let sock = null;
 
 // Handoff mode - when true, don't auto-reply
 let handoffMode = false;
+
+// Conversation memory for each chat
+const conversations = new Map();
+
+// Business profile
+const BUSINESS_PROFILE = {
+  name: process.env.CLIENT_NAME || 'Global Fit',
+  description: 'Your 24/7 Fitness Center',
+  welcomeMessage: 'Welcome to Global Fit! How can I help you today?',
+  outOfHoursMessage: 'Thank you for your message! We are currently outside of business hours. We will get back to you as soon as we open.',
+  operatingHours: {
+    monday: { open: 5, close: 23 },
+    tuesday: { open: 5, close: 23 },
+    wednesday: { open: 5, close: 23 },
+    thursday: { open: 5, close: 23 },
+    friday: { open: 5, close: 22 },
+    saturday: { open: 7, close: 20 },
+    sunday: { open: 8, close: 20 }
+  }
+};
 
 async function startWhatsApp() {
   try {
@@ -86,7 +103,7 @@ async function startWhatsApp() {
 
       for (const msg of messages) {
         if (!msg.message) continue;
-        
+
         // Only handle messages from others (not from ourselves)
         if (msg.key.fromMe) continue;
 
@@ -104,7 +121,7 @@ async function handleMessage(msg) {
   try {
     const remoteJid = msg.key.remoteJid;
     const messageContent = msg.message;
-    
+
     // Extract text message
     let text = '';
     if (messageContent.conversation) {
@@ -119,31 +136,34 @@ async function handleMessage(msg) {
 
     logger.info({ from: remoteJid, text }, 'Received message');
 
-    // Store conversation
-    await db.storeConversation(remoteJid, 'user', text);
-
     // Check if handoff mode is active
     if (handoffMode) {
       logger.info({ remoteJid }, 'Handoff mode active - skipping auto-reply');
       return;
     }
 
-    // Check business hours
-    const businessHours = await db.getBusinessHours();
-    const withinHours = checkBusinessHours(businessHours);
-
-    if (!withinHours) {
-      await sendOutOfHoursReply(remoteJid);
-      return;
+    // Get conversation history
+    if (!conversations.has(remoteJid)) {
+      conversations.set(remoteJid, []);
     }
+    const history = conversations.get(remoteJid);
+    const recentMessages = history.slice(-10).map(m => ({ role: m.role, content: m.content }));
 
-    // Send to Brain API
-    const response = await callBrainAPI(remoteJid, text);
+    // Add user message to history
+    recentMessages.push({ role: 'user', content: text });
 
-    if (response && response.reply) {
-      await sock.sendMessage(remoteJid, { text: response.reply });
-      await db.storeConversation(remoteJid, 'assistant', response.reply);
-      logger.info({ to: remoteJid, reply: response.reply }, 'Sent reply');
+    // Generate response using OpenAI
+    const response = await generateAIResponse(text, recentMessages);
+
+    // Send response
+    if (response) {
+      await sock.sendMessage(remoteJid, { text: response });
+
+      // Add assistant response to history
+      recentMessages.push({ role: 'assistant', content: response });
+      conversations.set(remoteJid, recentMessages.slice(-20));
+
+      logger.info({ to: remoteJid, response }, 'Sent reply');
     }
 
   } catch (error) {
@@ -151,83 +171,95 @@ async function handleMessage(msg) {
   }
 }
 
-async function callBrainAPI(phoneNumber, message) {
+async function generateAIResponse(userMessage, conversationHistory) {
   try {
-    const businessProfile = await db.getBusinessProfile();
-    const conversationHistory = await db.getConversationHistory(phoneNumber, 10);
-
-    const response = await fetch(`${process.env.BRAIN_API_URL}/api/receptionist`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.BRAIN_API_KEY || ''}`
-      },
-      body: JSON.stringify({
-        phoneNumber,
-        message,
-        businessProfile,
-        conversationHistory
-      })
+    const openai = new openai({
+      apiKey: process.env.OPENAI_API_KEY,
     });
 
-    if (!response.ok) {
-      throw new Error(`Brain API error: ${response.status}`);
+    // Build system prompt
+    const systemPrompt = `You are a helpful receptionist for ${BUSINESS_PROFILE.name}, a fitness center.
+
+${BUSINESS_PROFILE.description}
+
+Welcome message: "${BUSINESS_PROFILE.welcomeMessage}"
+Out of hours message: "${BUSINESS_PROFILE.outOfHoursMessage}"
+
+Business Hours:
+Monday - Friday: 5:00 AM - 11:00 PM
+Saturday: 7:00 AM - 8:00 PM
+Sunday: 8:00 AM - 8:00 PM
+
+Services:
+- 24/7 gym access for premium members
+- Personal training sessions
+- Group fitness classes
+- Nutritional counseling
+
+Your role is to:
+1. Greet customers warmly
+2. Answer questions about hours, location, services, pricing
+3. Help schedule appointments or consultations
+4. Provide information about memberships and classes
+5. Be friendly, professional, and concise
+
+Keep responses under 150 words when possible. If someone needs immediate assistance or wants to speak to a human, let them know they can call during business hours.`;
+
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory
+    ];
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: messages,
+      max_tokens: 300,
+      temperature: 0.7,
+    });
+
+    return completion.choices[0]?.message?.content || null;
+
+  } catch (error) {
+    logger.error({ error }, 'OpenAI API error');
+
+    // Fallback response if API fails
+    if (error.status === 401 || error.code === 'insufficient_quota') {
+      return `Thank you for your message! Our team is currently busy. Please call us during business hours or try again later.`;
     }
 
-    return await response.json();
-  } catch (error) {
-    logger.error({ error }, 'Error calling Brain API');
-    return null;
+    return `I'm here to help! For immediate assistance, please contact us during business hours.`;
   }
 }
 
-function checkBusinessHours(businessHours) {
-  if (!businessHours) return true;
-
+function checkBusinessHours() {
   const now = new Date();
   const day = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
   const hour = now.getHours();
 
-  const todayHours = businessHours[day];
+  const todayHours = BUSINESS_PROFILE.operatingHours[day];
   if (!todayHours) return false;
 
   return hour >= todayHours.open && hour < todayHours.close;
-}
-
-async function sendOutOfHoursReply(remoteJid) {
-  const businessProfile = await db.getBusinessProfile();
-  const reply = businessProfile?.outOfHoursMessage || 
-    'Thank you for your message! We are currently outside of business hours. We will get back to you as soon as we open.';
-
-  await sock.sendMessage(remoteJid, { text: reply });
-  await db.storeConversation(remoteJid, 'assistant', reply);
 }
 
 async function sendAlert(message) {
   // Send Telegram alert if configured
   if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
     try {
-      const { Telegraf } = await import('telegraf');
-      const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
-      await bot.telegram.sendMessage(process.env.TELEGRAM_CHAT_ID, `🚨 WhatsApp Alert: ${message}`);
+      const fetch = (await import('node-fetch')).default;
+      await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: process.env.TELEGRAM_CHAT_ID,
+          text: `WhatsApp Alert: ${message}`
+        })
+      });
     } catch (error) {
       logger.error({ error }, 'Failed to send Telegram alert');
     }
   }
-
-  // Could add SMS alert here via Twilio
 }
-
-// Authentication middleware for sensitive endpoints
-const authenticate = (req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
-  const validKey = process.env.API_KEY || 'change-me-in-production';
-
-  if (apiKey !== validKey) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-};
 
 // Express routes
 app.use(express.json());
@@ -263,6 +295,17 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// Protected endpoints with API key
+const authenticate = (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  const validKey = process.env.API_KEY || 'change-me-in-production';
+
+  if (apiKey !== validKey) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+};
+
 app.post('/api/restart', authenticate, async (req, res) => {
   try {
     if (sock) {
@@ -290,10 +333,7 @@ app.get('/api/handoff', (req, res) => {
 // Start server
 app.listen(PORT, async () => {
   logger.info({ PORT }, 'WhatsApp Gateway server started');
-  
-  // Initialize database
-  await db.initialize();
-  
+
   // Start WhatsApp connection
   await startWhatsApp();
 });

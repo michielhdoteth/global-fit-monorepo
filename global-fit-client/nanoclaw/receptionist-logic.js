@@ -3,7 +3,7 @@
  * AI-powered business logic for handling customer inquiries
  */
 
-const { profileQueries, hoursQueries } = require('../storage/db');
+const { profileQueries, hoursQueries } = require('/app/storage/db');
 
 /**
  * Analyze message and determine intent

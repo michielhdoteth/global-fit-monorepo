@@ -6,7 +6,7 @@
 const express = require('express');
 const { receptionistLogic } = require('./receptionist-logic');
 const { responseRouter } = require('./response-router');
-const { conversationQueries } = require('../storage/db');
+const { conversationQueries } = require('/app/storage/db');
 
 const router = express.Router();
 

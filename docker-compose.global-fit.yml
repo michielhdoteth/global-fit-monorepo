@@ -1,8 +1,8 @@
 services:
   global-fit-gateway:
     build:
-      context: ./whatsapp-gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.gateway
     container_name: global-fit-whatsapp-gateway
     ports:
       - "2901:2901"
@@ -33,8 +33,8 @@ services:
 
   global-fit-brain:
     build:
-      context: ./global-fit-client/nanoclaw
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.brain
     container_name: global-fit-brain-api
     ports:
       - "3001:3000"

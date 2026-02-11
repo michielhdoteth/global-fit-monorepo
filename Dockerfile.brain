@@ -9,17 +9,17 @@ RUN apk add --no-cache python3 make g++ sqlite
 RUN npm install -g bun
 
 # Install dependencies
-COPY package*.json ./
+COPY global-fit-client/nanoclaw/package*.json ./
 RUN bun install --production
 
 # Copy application code
-COPY server.js ./
-COPY message-router.js ./
-COPY receptionist-logic.js ./
-COPY response-router.js ./
+COPY global-fit-client/nanoclaw/server.js ./
+COPY global-fit-client/nanoclaw/message-router.js ./
+COPY global-fit-client/nanoclaw/receptionist-logic.js ./
+COPY global-fit-client/nanoclaw/response-router.js ./
 
 # Copy storage db.js to app directory
-COPY ../storage/db.js /app/storage/db.js
+COPY storage/db.js /app/storage/db.js
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs

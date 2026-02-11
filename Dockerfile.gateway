@@ -9,16 +9,16 @@ RUN apk add --no-cache python3 make g++ sqlite
 RUN npm install -g bun
 
 # Install dependencies
-COPY package*.json ./
+COPY whatsapp-gateway/package*.json ./
 RUN bun install --production
 
 # Copy application code
-COPY gateway.js ./
-COPY qr-handler.js ./
-COPY session-manager.js ./
+COPY whatsapp-gateway/gateway.js ./
+COPY whatsapp-gateway/qr-handler.js ./
+COPY whatsapp-gateway/session-manager.js ./
 
 # Copy storage db.js to app directory
-COPY ../storage/db.js /app/storage/db.js
+COPY storage/db.js /app/storage/db.js
 
 # Create directories
 RUN mkdir -p sessions storage
